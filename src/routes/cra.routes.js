@@ -1,13 +1,14 @@
 import express from "express";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 import {
-    createCRA,
-    getUserCRAs,
-    getAllCRAs,
-    getCRAById,
-    updateCRA,
-    deleteCRA,
-    getDashboardCRAs
+  createCRA,
+  getUserCRAs,
+  getAllCRAs,
+  getCRAById,
+  updateCRA,
+  deleteCRA,
+  getDashboardCRAs
 } from "../controllers/cra.controller.js";
 
 const router = express.Router();
@@ -16,13 +17,21 @@ const router = express.Router();
 router.use(verifyJWT);
 
 // CRA CRUD operations
-router.route("/").post(createCRA);
-router.route("/user/:user_id").get(getUserCRAs);
-router.route("/all").get(getAllCRAs);
-router.route("/dashboard").get(getDashboardCRAs);
+router.route("/")
+  .post(asyncHandler(createCRA));
+
+router.route("/user/:user_id")
+  .get(asyncHandler(getUserCRAs));
+
+router.route("/all")
+  .get(asyncHandler(getAllCRAs));
+
+router.route("/dashboard")
+  .get(asyncHandler(getDashboardCRAs));
+
 router.route("/:cra_id")
-    .get(getCRAById)
-    .patch(updateCRA)
-    .delete(deleteCRA);
+  .get(asyncHandler(getCRAById))
+  .patch(asyncHandler(updateCRA))
+  .delete(asyncHandler(deleteCRA));
 
 export { router as craRouter };

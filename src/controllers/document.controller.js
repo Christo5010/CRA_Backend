@@ -15,9 +15,27 @@ const uploadDocument = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Title and document type are required");
     }
 
-    // For now, we'll skip file upload since we removed Cloudinary
-    // This can be implemented later with a different file storage solution
-    const fileUrl = null;
+    // Upload file to Supabase Storage (bucket: documents)
+    const fileExt = req.file.originalname.split('.').pop();
+    const objectKey = `u_${userId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${fileExt}`;
+    const { data: uploaded, error: uploadError } = await supabase
+        .storage
+        .from('documents')
+        .upload(objectKey, req.file.buffer, {
+            contentType: req.file.mimetype,
+            upsert: false
+        });
+
+    if (uploadError) {
+        throw new ApiError(500, 'Failed to upload document file');
+    }
+
+    const { data: publicUrlData } = supabase
+        .storage
+        .from('documents')
+        .getPublicUrl(uploaded.path);
+
+    const fileUrl = publicUrlData?.publicUrl || null;
 
     // Store document metadata in Supabase
     const { data: document, error } = await supabase
@@ -154,11 +172,35 @@ const deleteDocument = asyncHandler(async (req, res) => {
 
 const signDocument = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { signature_data } = req.body;
+    const { signature_text, signature_svg } = req.body;
     const userId = req.user.id;
 
-    if (!signature_data) {
-        throw new ApiError(400, "Signature data is required");
+    // Accept either an uploaded signature image file or a typed signature text
+    let signaturePayload = {};
+    if (req.file) {
+        const fileExt = req.file.originalname.split('.').pop();
+        const objectKey = `u_${userId}/sig_${id}_${Date.now()}.${fileExt}`;
+        const { data: uploaded, error: uploadError } = await supabase
+            .storage
+            .from('signatures')
+            .upload(objectKey, req.file.buffer, {
+                contentType: req.file.mimetype,
+                upsert: false
+            });
+        if (uploadError) {
+            throw new ApiError(500, 'Failed to upload signature');
+        }
+        const { data: publicUrlData } = supabase
+            .storage
+            .from('signatures')
+            .getPublicUrl(uploaded.path);
+        signaturePayload = { signature_type: 'image', signature_url: publicUrlData?.publicUrl || null };
+    } else if (signature_svg) {
+        signaturePayload = { signature_type: 'svg', signature_svg };
+    } else if (signature_text) {
+        signaturePayload = { signature_type: 'text', signature_text };
+    } else {
+        throw new ApiError(400, 'Signature is required (file upload or signature_text)');
     }
 
     // Check if document exists and belongs to user
@@ -179,7 +221,7 @@ const signDocument = asyncHandler(async (req, res) => {
         .insert({
             document_id: id,
             user_id: userId,
-            signature_data,
+            ...signaturePayload,
             signed_at: new Date().toISOString()
         })
         .select()

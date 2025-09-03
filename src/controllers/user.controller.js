@@ -1,60 +1,20 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import { supabase, supabaseAdmin } from "../utils/supabaseClient.js";
-import jwt from 'jsonwebtoken'
+import { supabase } from "../utils/supabaseClient.js";
 import { sendMail } from "../utils/sendMail.js";
-import crypto from 'crypto';
-import { redisClient } from '../utils/redisClient.js';
-import bcrypt from 'bcrypt';
 
-const generateAcessAndRefreshToken = async (userid)=>{
-    try {
-        const { data: user, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', userid)
-            .single();
-            
-        if (error || !user) {
-            throw new ApiError(404, "User not found for token generation");
-        }
-        
-        const accessToken = jwt.sign(
-            { _id: user.id, email: user.email, role: user.role },
-            process.env.ACCESS_TOKEN_SECRET,
-            { expiresIn: process.env.ACCESS_TOKEN_EXPIRY }
-        );
-        
-        const refreshToken = jwt.sign(
-            { _id: user.id },
-            process.env.REFRESH_TOKEN_SECRET,
-            { expiresIn: process.env.REFRESH_TOKEN_EXPIRY }
-        );
-        
-        // Update refresh token in database
-        await supabase
-            .from('profiles')
-            .update({ refresh_token: refreshToken })
-            .eq('id', userid);
-            
-        return {accessToken, refreshToken}
-    } catch (error) {
-        throw new ApiError(500, "Something went wrong at the end")
-    }
-}
 
 const loginUser = asyncHandler(async(req,res)=>{
     const {username, email, password} = req.body
     if(!username&&!email)throw new ApiError(400,"Email or username required");
     
-    // First, we need to get the user from auth.users table to check password
-    // Since profiles table doesn't have password, we need to use Supabase auth
+    let accessToken = null;
+    let refreshToken = null;
     let user = null;
     let profile = null;
-    
+
     try {
-        // Try to authenticate with Supabase auth first
         const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
             email: email || username,
             password: password
@@ -65,8 +25,8 @@ const loginUser = asyncHandler(async(req,res)=>{
         }
         
         user = authData.user;
-        
-        // Now get the profile information
+        accessToken = authData.session?.access_token || null;
+        refreshToken = authData.session?.refresh_token || null;
         const { data: profileData, error: profileError } = await supabase
             .from('profiles')
             .select('*')
@@ -89,25 +49,14 @@ const loginUser = asyncHandler(async(req,res)=>{
         }
         throw new ApiError(401, "Invalid credentials");
     }
-    
-    const {accessToken, refreshToken} = await generateAcessAndRefreshToken(profile.id)
-    
+
     const logedInUser = { ...profile };
     delete logedInUser.refresh_token;
     
-    // Normalize role to lowercase for consistency
     if (logedInUser.role) {
         logedInUser.role = logedInUser.role.toLowerCase();
     }
-    
-    const options = {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production', // Only secure in production
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Lax for localhost
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    }
-    
-    return res.status(200).cookie("accessToken",accessToken,options).cookie("refreshToken",refreshToken,options).json(
+    return res.status(200).json(
         new ApiResponse(
             200,
             {
@@ -119,65 +68,27 @@ const loginUser = asyncHandler(async(req,res)=>{
 })
 
 const logoutUser = asyncHandler(async(req,res)=>{
-    await supabase
-        .from('profiles')
-        .update({ refresh_token: null })
-        .eq('id', req.user.id);
-        
-    const options = {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'none'
-    }
-    
-    return res.status(200).clearCookie("accessToken",options).clearCookie("refreshToken",options).json(
-        new ApiResponse(
-            200,
-            {},
-            "User loggedout successfully"
-        )
-    )
+    // Client stores tokens; just respond success
+    return res.status(200).json(new ApiResponse(200, {}, "User logged out successfully"))
 })
 
-const refreshAccessToken = asyncHandler(async(req,res)=>{
-    const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken
-    if(!incomingRefreshToken){
-        throw new ApiError(401,"Unauthorized Request")
+const refreshAccessToken = asyncHandler(async (req, res) => {
+    const { refreshToken } = req.body;
+    if (!refreshToken) throw new ApiError(401, 'Unauthorized Request');
+
+    // Ask Supabase to refresh the session using the provided refresh_token
+    const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
+    if (error || !data?.session?.access_token) {
+        throw new ApiError(401, 'Invalid refresh token');
     }
-    
-    const decodedToken = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET)
-    const { data: user, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', decodedToken?._id)
-        .single();
-        
-    if(!user){
-        throw new ApiError(401,"Invalid Refresh Token")
-    }
-    
-    if(incomingRefreshToken !== user?.refresh_token){
-        throw new ApiError(401, "Refresh Token is expired")
-    }
-    
-    const {accessToken , newrefreshToken} = await generateAcessAndRefreshToken(user.id)
-    const options = {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'none',
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    }
-    
-    return res.status(200).cookie("accessToken", accessToken, options).cookie("refreshToken", newrefreshToken, options).json(
-        new ApiResponse(
-            200,
-            {
-                accessToken, refreshToken: newrefreshToken
-            },
-            "New Token Created Successfully"
-        )
-    )
-})
+
+    return res.status(200).json(
+        new ApiResponse(200, {
+            accessToken: data.session.access_token,
+            refreshToken: data.session.refresh_token
+        }, 'New Token Created Successfully')
+    );
+});
 
 const changeCurrentPassword = asyncHandler(async(req,res)=>{
     const {oldPassword, newPassword} = req.body
@@ -278,89 +189,110 @@ const getAllUsers = asyncHandler(async (req, res) => {
 });
 
 const createUser = asyncHandler(async (req, res) => {
-    // Only admin can create users
     if (req.user.role !== 'admin') {
         throw new ApiError(403, 'Access denied. Admin role required.');
     }
-    
-    const { name, email, password, role, client_id } = req.body;
-    
-    if (!name || !email || !password || !role) {
-        throw new ApiError(400, 'All fields are required: name, email, password, role');
+
+    const { name, email, role, client_id } = req.body;
+
+    if (!name || !email || !role) {
+        throw new ApiError(400, 'All fields are required: name, email, role');
     }
-    
-    // Validate role
+
     const validRoles = ['admin', 'consultant', 'manager'];
-    if (!validRoles.includes(role)) {
+    if (!validRoles.includes(role.toLowerCase())) {
         throw new ApiError(400, 'Invalid role. Must be admin, consultant, or manager');
     }
-    
+
+    const normalizedRole = role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+
     try {
-        // First create user in Supabase auth
-        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-            email: email,
-            password: password,
-            email_confirm: true
-        });
-        
-        if (authError) {
-            throw new ApiError(500, `Failed to create user: ${authError.message}`);
+        const { data: existingProfile, error: profileCheckError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', email)
+            .maybeSingle();
+
+        if (profileCheckError) {
+            throw new ApiError(500, `Failed to check existing profile: ${profileCheckError.message}`);
         }
-        
-        // Now create profile
+
+        if (existingProfile) {
+            throw new ApiError(400, 'User profile already exists for this email.');
+        }
+
+        const { data: authList, error: authListError } = await supabase.auth.admin.listUsers();
+
+        if (authListError) {
+            throw new ApiError(500, `Failed to list auth users: ${authListError.message}`);
+        }
+
+        let invitedUserId;
+        const matchedUser = authList.users.find(u => u.email === email);
+
+        if (matchedUser) {
+            invitedUserId = matchedUser.id;
+        } else {
+            const { data: inviteData, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email, {
+                redirectTo: `${process.env.FRONTEND_URL || ''}/reset-password`
+            });
+            if (inviteError) {
+                throw new ApiError(500, `Failed to invite user: ${inviteError.message}`);
+            }
+            invitedUserId = inviteData?.user?.id;
+            if (!invitedUserId) {
+                throw new ApiError(500, 'Failed to retrieve invited user id');
+            }
+        }
         const { data: profile, error: profileError } = await supabase
             .from('profiles')
-            .insert({
-                id: authData.user.id,
+            .upsert({
+                id: invitedUserId,
                 name,
                 email,
-                role,
+                role: normalizedRole,
                 active: true,
                 client_id: client_id || null,
                 updated_at: new Date().toISOString()
             })
             .select()
             .single();
-            
+
         if (profileError) {
-            // If profile creation fails, we should delete the auth user
-            await supabase.auth.admin.deleteUser(authData.user.id);
+            if (!matchedUser) {
+                await supabase.auth.admin.deleteUser(invitedUserId);
+            }
             throw new ApiError(500, `Failed to create profile: ${profileError.message}`);
         }
-        
-        // Send welcome email
+
         try {
             await sendMail({
                 to: email,
-                subject: 'Welcome to Horizons!',
-                html: `                    <div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px;">
+                subject: 'Your Horizons account is ready',
+                html: `
+                    <div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px;">
                         <div style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-                            <h2 style="color: #2a2a2a;">Welcome to Horizons!</h2>
+                            <h2 style="color: #2a2a2a;">Welcome to Horizons</h2>
                             <p style="font-size: 16px; color: #444;">Hello ${name},</p>
-                            <p style="font-size: 15px; color: #444;">Your account has been successfully created. Here are your account details:</p>
+                            <p style="font-size: 15px; color: #444;">An account has been created for you.</p>
+                            <p style="font-size: 15px; color: #444;">Please check your inbox for an invitation email to set your password and activate your account.</p>
                             <div style="background-color: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0;">
                                 <p style="margin: 5px 0;"><strong>Email:</strong> ${email}</p>
-                                <p style="margin: 5px 0;"><strong>Role:</strong> ${role}</p>
+                                <p style="margin: 5px 0;"><strong>Role:</strong> ${normalizedRole}</p>
                             </div>
-                            <p style="font-size: 15px; color: #444;">You can now log in to your account and start using our system.</p>
-                            <p style="font-size: 14px; color: #666;">If you have any questions, please contact your system administrator.</p>
-                            <hr style="margin-top: 30px; border: none; border-top: 1px solid #eee;">
-                            <p style="font-size: 13px; color: #999;">
-                                Best regards,<br>The Horizons Team
-                            </p>
+                            <p style="font-size: 14px; color: #666;">If you haven't received the invitation, try checking the spam folder or request a new invitation from your administrator.</p>
                         </div>
                     </div>
                 `
             });
         } catch (emailError) {
-            // Failed to send welcome email
-            // Don't fail the user creation if email fails
+            // Ignore email failures
         }
-        
+
         return res.status(201).json(
-            new ApiResponse(201, profile, "User created successfully")
+            new ApiResponse(201, profile, 'User created and invitation sent successfully')
         );
-        
+
     } catch (error) {
         if (error instanceof ApiError) {
             throw error;
@@ -409,6 +341,104 @@ const resetPassword = asyncHandler(async (req, res) => {
     }
 });
 
+const updateUser = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { name, email, role, active, client_id } = req.body;
+    
+    // Only admin can update users
+    if (req.user.role !== 'admin') {
+        throw new ApiError(403, 'Access denied. Admin role required.');
+    }
+    
+    // Check if user exists
+    const { data: existingUser, error: fetchError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', id)
+        .single();
+        
+    if (fetchError || !existingUser) {
+        throw new ApiError(404, 'User not found');
+    }
+    
+    const updateFields = {};
+    if (name !== undefined) updateFields.name = name;
+    if (email !== undefined) updateFields.email = email;
+    if (role !== undefined) {
+        const normalizedRole = role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+        updateFields.role = normalizedRole; // "Consultant", "Manager", "Admin"
+    }
+    if (active !== undefined) updateFields.active = active;
+    if (client_id !== undefined) updateFields.client_id = client_id;
+    
+    // Add updated_at timestamp
+    updateFields.updated_at = new Date().toISOString();
+    
+    if (Object.keys(updateFields).length === 0) {
+        throw new ApiError(400, 'No fields to update');
+    }
+    
+    const { data: updatedUser, error: updateError } = await supabase
+        .from('profiles')
+        .update(updateFields)
+        .eq('id', id)
+        .select('*')
+        .single();
+        
+    if (updateError) {
+        throw new ApiError(500, 'Failed to update user');
+    }
+    
+    return res.status(200).json(new ApiResponse(200, updatedUser, 'User updated successfully'));
+});
+
+const deleteUser = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    
+    // Only admin can delete users
+    if (req.user.role !== 'admin') {
+        throw new ApiError(403, 'Access denied. Admin role required.');
+    }
+    
+    // Check if user exists
+    const { data: existingUser, error: fetchError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', id)
+        .single();
+        
+    if (fetchError || !existingUser) {
+        throw new ApiError(404, 'User not found');
+    }
+    
+    // Prevent admin from deleting themselves
+    if (id === req.user.id) {
+        throw new ApiError(400, 'Cannot delete your own account');
+    }
+    
+    try {
+        // Delete from Supabase auth
+        const { error: authError } = await supabase.auth.admin.deleteUser(id);
+        if (authError) {
+            throw new ApiError(500, 'Failed to delete user from authentication');
+        }
+        
+        // Delete from profiles table
+        const { error: profileError } = await supabase
+            .from('profiles')
+            .delete()
+            .eq('id', id);
+            
+        if (profileError) {
+            throw new ApiError(500, 'Failed to delete user profile');
+        }
+        
+        return res.status(200).json(new ApiResponse(200, {}, 'User deleted successfully'));
+    } catch (error) {
+        throw new ApiError(500, `Failed to delete user: ${error.message}`);
+    }
+});
+
 export {
     loginUser,
     logoutUser,
@@ -418,6 +448,8 @@ export {
     updateAccount,
     getAllUsers,
     createUser,
+    updateUser,
+    deleteUser,
     forgotPassword,
     resetPassword
 }

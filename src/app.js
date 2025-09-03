@@ -10,18 +10,22 @@ const port = process.env.PORT || 8000
 app.use(cors({
     origin: function (origin, callback) {
         if (!origin) return callback(null, true);
-        
-        const allowedOrigins = [
-            process.env.FRONTEND_URL || "http://localhost:5173",
-            "http://localhost:3000"
+        const envFrontend = process.env.FRONTEND_URL || "http://localhost:5173";
+        const allowList = [
+            envFrontend,
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:4173",
+            "http://127.0.0.1:4173",
+            /https?:\/\/.*\.vercel\.app$/
         ];
-        
-        if (allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            // CORS blocked origin
-            callback(new Error('Not allowed by CORS'));
-        }
+        const isAllowed = allowList.some((allowed) => {
+            if (allowed instanceof RegExp) return allowed.test(origin);
+            return allowed === origin;
+        });
+        return isAllowed ? callback(null, true) : callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],

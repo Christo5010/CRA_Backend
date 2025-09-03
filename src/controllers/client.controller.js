@@ -3,21 +3,18 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { supabase } from "../utils/supabaseClient.js";
 
-// Create a new client
 const createClient = asyncHandler(async (req, res) => {
-    const { name, address, contact_email, contact_phone, description } = req.body;
+    const { name, address} = req.body;
     const currentUser = req.user;
 
     if (!name) {
         throw new ApiError(400, "Client name is required");
     }
 
-    // Only admins and managers can create clients
     if (currentUser.role !== 'admin' && currentUser.role !== 'manager') {
         throw new ApiError(403, "Only admins and managers can create clients");
     }
 
-    // Check if client already exists
     const { data: existingClient } = await supabase
         .from('clients')
         .select('*')
@@ -30,12 +27,7 @@ const createClient = asyncHandler(async (req, res) => {
 
     const clientData = {
         name,
-        address: address || '',
-        contact_email: contact_email || '',
-        contact_phone: contact_phone || '',
-        description: description || '',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        address: address || ''
     };
 
     const { data: client, error } = await supabase
@@ -53,26 +45,16 @@ const createClient = asyncHandler(async (req, res) => {
     );
 });
 
-// Get all clients
 const getAllClients = asyncHandler(async (req, res) => {
     const currentUser = req.user;
 
-    // Only admins and managers can view all clients
     if (currentUser.role !== 'admin' && currentUser.role !== 'manager') {
         throw new ApiError(403, "Only admins and managers can view all clients");
     }
 
     const { data: clients, error } = await supabase
         .from('clients')
-        .select(`
-            *,
-            profiles:profiles!inner (
-                id,
-                name,
-                email,
-                role
-            )
-        `)
+        .select('*')          // just clients, no inner join
         .order('name', { ascending: true });
 
     if (error) {
@@ -83,6 +65,29 @@ const getAllClients = asyncHandler(async (req, res) => {
         new ApiResponse(200, clients, "Clients fetched successfully")
     );
 });
+
+// Get clients for dropdown/selection
+const getClientsForSelection = asyncHandler(async (req, res) => {
+    const currentUser = req.user;
+
+    if (currentUser.role !== 'admin' && currentUser.role !== 'manager') {
+        throw new ApiError(403, "Only admins and managers can view clients");
+    }
+
+    const { data: clients, error } = await supabase
+        .from('clients')
+        .select('id, name')  // only the fields needed for dropdown
+        .order('name', { ascending: true });
+
+    if (error) {
+        throw new ApiError(500, 'Failed to fetch clients for selection');
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, clients, "Clients fetched successfully")
+    );
+});
+
 
 // Get client by ID
 const getClientById = asyncHandler(async (req, res) => {
@@ -120,7 +125,7 @@ const getClientById = asyncHandler(async (req, res) => {
 // Update client
 const updateClient = asyncHandler(async (req, res) => {
     const { client_id } = req.params;
-    const { name, address, contact_email, contact_phone, description } = req.body;
+    const { name, address} = req.body;
     const currentUser = req.user;
 
     // Only admins and managers can update clients
@@ -153,15 +158,10 @@ const updateClient = asyncHandler(async (req, res) => {
         }
     }
 
-    const updateData = {
-        updated_at: new Date().toISOString()
-    };
+    const updateData = {};
 
     if (name !== undefined) updateData.name = name;
     if (address !== undefined) updateData.address = address;
-    if (contact_email !== undefined) updateData.contact_email = contact_email;
-    if (contact_phone !== undefined) updateData.contact_phone = contact_phone;
-    if (description !== undefined) updateData.description = description;
 
     const { data: client, error } = await supabase
         .from('clients')
@@ -225,27 +225,27 @@ const deleteClient = asyncHandler(async (req, res) => {
 });
 
 // Get clients for dropdown/selection
-const getClientsForSelection = asyncHandler(async (req, res) => {
-    const currentUser = req.user;
+// const getClientsForSelection = asyncHandler(async (req, res) => {
+//     const currentUser = req.user;
 
-    // Only admins and managers can view clients
-    if (currentUser.role !== 'admin' && currentUser.role !== 'manager') {
-        throw new ApiError(403, "Only admins and managers can view clients");
-    }
+//     // Only admins and managers can view clients
+//     if (currentUser.role !== 'admin' && currentUser.role !== 'manager') {
+//         throw new ApiError(403, "Only admins and managers can view clients");
+//     }
 
-    const { data: clients, error } = await supabase
-        .from('clients')
-        .select('id, name')
-        .order('name', { ascending: true });
+//     const { data: clients, error } = await supabase
+//         .from('clients')
+//         .select('id, name')
+//         .order('name', { ascending: true });
 
-    if (error) {
-        throw new ApiError(500, 'Failed to fetch clients');
-    }
+//     if (error) {
+//         throw new ApiError(500, 'Failed to fetch clients');
+//     }
 
-    return res.status(200).json(
-        new ApiResponse(200, clients, "Clients fetched successfully")
-    );
-});
+//     return res.status(200).json(
+//         new ApiResponse(200, clients, "Clients fetched successfully")
+//     );
+// });
 
 export {
     createClient,

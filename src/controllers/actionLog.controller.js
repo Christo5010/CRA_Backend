@@ -3,9 +3,8 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { supabase } from "../utils/supabaseClient.js";
 
-// Create a new action log entry
 const createActionLog = asyncHandler(async (req, res) => {
-    const { action, details, user_id, ip_address, user_agent } = req.body;
+    const { action, details, user_id } = req.body;
     const currentUser = req.user;
 
     if (!action) {
@@ -21,8 +20,6 @@ const createActionLog = asyncHandler(async (req, res) => {
         action,
         details: details || {},
         user_id: user_id || currentUser.id,
-        ip_address: ip_address || req.ip,
-        user_agent: user_agent || req.get('User-Agent'),
         created_at: new Date().toISOString()
     };
 
@@ -207,6 +204,7 @@ const getDashboardActionLogs = asyncHandler(async (req, res) => {
     const { data: logs, error } = await query;
 
     if (error) {
+        console.log(error)
         throw new ApiError(500, 'Failed to fetch dashboard action logs');
     }
 

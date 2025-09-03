@@ -104,6 +104,7 @@ const getAllCRAs = asyncHandler(async (req, res) => {
         .order('month', { ascending: false });
 
     if (error) {
+        console.log(error)
         throw new ApiError(500, 'Failed to fetch CRAs');
     }
 

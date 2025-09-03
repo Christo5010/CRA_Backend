@@ -20,6 +20,7 @@ router.route("/").get(getDocuments);
 router.route("/:id").get(getDocumentById);
 router.route("/:id").put(updateDocument);
 router.route("/:id").delete(deleteDocument);
-router.route("/:id/sign").post(signDocument);
+// Accept either multipart (file) or JSON body for signature
+router.route("/:id/sign").post(upload.single('signature'), signDocument);
 
 export { router as documentRouter };
