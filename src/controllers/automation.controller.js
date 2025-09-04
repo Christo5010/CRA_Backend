@@ -8,28 +8,28 @@ const sendWelcomeEmail = asyncHandler(async (req, res) => {
     const { userId, email, fullname } = req.body;
     
     if (!userId || !email || !fullname) {
-        throw new ApiError(400, "User ID, email, and fullname are required");
+        throw new ApiError(400, "L'ID utilisateur, l'email et le nom complet sont requis");
     }
     
     try {
         await sendMail({
             to: email,
-            subject: 'Welcome to Horizons!',
+            subject: 'Bienvenue sur Horizons !',
             html: `
                 <div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px;">
                     <div style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-                        <h2 style="color: #2a2a2a;">Welcome to Horizons!</h2>
-                        <p style="font-size: 16px; color: #444;">Hello ${fullname},</p>
-                        <p style="font-size: 15px; color: #444;">Your account has been successfully created. Here are your account details:</p>
+                        <h2 style="color: #2a2a2a;">Bienvenue sur Horizons !</h2>
+                        <p style="font-size: 16px; color: #444;">Bonjour ${fullname},</p>
+                        <p style="font-size: 15px; color: #444;">Votre compte a été créé avec succès. Voici les détails de votre compte :</p>
                         <div style="background-color: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0;">
-                            <p style="margin: 5px 0;"><strong>Email:</strong> ${email}</p>
-                            <p style="margin: 5px 0;"><strong>Username:</strong> ${fullname.toLowerCase().replace(/\s+/g, '')}</p>
+                            <p style="margin: 5px 0;"><strong>Email :</strong> ${email}</p>
+                            <p style="margin: 5px 0;"><strong>Nom d'utilisateur :</strong> ${fullname.toLowerCase().replace(/\s+/g, '')}</p>
                         </div>
-                        <p style="font-size: 15px; color: #444;">You can now log in to your account and start using our system.</p>
-                        <p style="font-size: 14px; color: #666;">If you have any questions, please contact your system administrator.</p>
+                        <p style="font-size: 15px; color: #444;">Vous pouvez maintenant vous connecter à votre compte et commencer à utiliser notre système.</p>
+                        <p style="font-size: 14px; color: #666;">Si vous avez des questions, veuillez contacter votre administrateur système.</p>
                         <hr style="margin-top: 30px; border: none; border-top: 1px solid #eee;">
                         <p style="font-size: 13px; color: #999;">
-                            Best regards,<br>The Horizons Team
+                            Cordialement,<br>L'équipe Horizons
                         </p>
                     </div>
                 </div>
@@ -47,7 +47,7 @@ const sendWelcomeEmail = asyncHandler(async (req, res) => {
             });
         
         return res.status(200).json(
-            new ApiResponse(200, {}, "Welcome email sent successfully")
+            new ApiResponse(200, {}, "Email de bienvenue envoyé avec succès")
         );
     } catch (error) {
         // Log the failed automation
@@ -61,7 +61,7 @@ const sendWelcomeEmail = asyncHandler(async (req, res) => {
                 created_at: new Date().toISOString()
             });
         
-        throw new ApiError(500, "Failed to send welcome email");
+        throw new ApiError(500, "Échec de l'envoi de l'email de bienvenue");
     }
 });
 
@@ -69,27 +69,27 @@ const sendDocumentNotification = asyncHandler(async (req, res) => {
     const { documentId, userId, email, fullname, documentTitle } = req.body;
     
     if (!documentId || !userId || !email || !fullname || !documentTitle) {
-        throw new ApiError(400, "All fields are required");
+        throw new ApiError(400, "Tous les champs sont requis");
     }
     
     try {
         await sendMail({
             to: email,
-            subject: 'Document Uploaded Successfully',
+            subject: 'Document uploadé avec succès',
             html: `
                 <div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px;">
                     <div style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-                        <h2 style="color: #2a2a2a;">Document Upload Confirmation</h2>
-                        <p style="font-size: 16px; color: #444;">Hello ${fullname},</p>
-                        <p style="font-size: 15px; color: #444;">Your document has been uploaded successfully:</p>
+                        <h2 style="color: #2a2a2a;">Confirmation d'upload de document</h2>
+                        <p style="font-size: 16px; color: #444;">Bonjour ${fullname},</p>
+                        <p style="font-size: 15px; color: #444;">Votre document a été uploadé avec succès :</p>
                         <div style="background-color: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0;">
-                            <p style="margin: 5px 0;"><strong>Document:</strong> ${documentTitle}</p>
-                            <p style="margin: 5px 0;"><strong>Uploaded:</strong> ${new Date().toLocaleDateString()}</p>
+                            <p style="margin: 5px 0;"><strong>Document :</strong> ${documentTitle}</p>
+                            <p style="margin: 5px 0;"><strong>Uploadé le :</strong> ${new Date().toLocaleDateString()}</p>
                         </div>
-                        <p style="font-size: 15px; color: #444;">You can now view and manage your document in the system.</p>
+                        <p style="font-size: 15px; color: #444;">Vous pouvez maintenant consulter et gérer votre document dans le système.</p>
                         <hr style="margin-top: 30px; border: none; border-top: 1px solid #eee;">
                         <p style="font-size: 13px; color: #999;">
-                            Best regards,<br>The Horizons Team
+                            Cordialement,<br>L'équipe Horizons
                         </p>
                     </div>
                 </div>
@@ -108,7 +108,7 @@ const sendDocumentNotification = asyncHandler(async (req, res) => {
             });
         
         return res.status(200).json(
-            new ApiResponse(200, {}, "Document notification sent successfully")
+            new ApiResponse(200, {}, "Notification de document envoyée avec succès")
         );
     } catch (error) {
         // Log the failed automation
@@ -123,7 +123,7 @@ const sendDocumentNotification = asyncHandler(async (req, res) => {
                 created_at: new Date().toISOString()
             });
         
-        throw new ApiError(500, "Failed to send document notification");
+        throw new ApiError(500, "Échec de l'envoi de la notification de document");
     }
 });
 
@@ -131,7 +131,7 @@ const sendReminderEmail = asyncHandler(async (req, res) => {
     const { userId, email, fullname, reminderType, dueDate } = req.body;
     
     if (!userId || !email || !fullname || !reminderType) {
-        throw new ApiError(400, "User ID, email, fullname, and reminder type are required");
+        throw new ApiError(400, "L'ID utilisateur, l'email, le nom complet et le type de rappel sont requis");
     }
     
     let subject = '';
@@ -139,20 +139,20 @@ const sendReminderEmail = asyncHandler(async (req, res) => {
     
     switch (reminderType) {
         case 'password_change':
-            subject = 'Password Change Reminder';
-            message = 'It\'s been a while since you last changed your password. Please consider updating it for security.';
+            subject = 'Rappel de changement de mot de passe';
+            message = 'Cela fait un moment que vous n\'avez pas changé votre mot de passe. Veuillez considérer le mettre à jour pour la sécurité.';
             break;
         case 'document_review':
-            subject = 'Document Review Reminder';
-            message = 'You have documents that may need review. Please check your document dashboard.';
+            subject = 'Rappel de révision de document';
+            message = 'Vous avez des documents qui peuvent nécessiter une révision. Veuillez vérifier votre tableau de bord de documents.';
             break;
         case 'account_update':
-            subject = 'Account Update Reminder';
-            message = 'Please review and update your account information to ensure it\'s current.';
+            subject = 'Rappel de mise à jour de compte';
+            message = 'Veuillez réviser et mettre à jour les informations de votre compte pour vous assurer qu\'elles sont à jour.';
             break;
         default:
-            subject = 'Reminder from Horizons';
-            message = 'This is a friendly reminder from your system.';
+            subject = 'Rappel de Horizons';
+            message = 'Ceci est un rappel amical de votre système.';
     }
     
     try {
@@ -163,13 +163,13 @@ const sendReminderEmail = asyncHandler(async (req, res) => {
                 <div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px;">
                     <div style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
                         <h2 style="color: #2a2a2a;">${subject}</h2>
-                        <p style="font-size: 16px; color: #444;">Hello ${fullname},</p>
+                        <p style="font-size: 16px; color: #444;">Bonjour ${fullname},</p>
                         <p style="font-size: 15px; color: #444;">${message}</p>
-                        ${dueDate ? `<p style="font-size: 14px; color: #666;"><strong>Due Date:</strong> ${dueDate}</p>` : ''}
-                        <p style="font-size: 14px; color: #666;">Thank you for using Horizons!</p>
+                        ${dueDate ? `<p style="font-size: 14px; color: #666;"><strong>Date d'échéance :</strong> ${dueDate}</p>` : ''}
+                        <p style="font-size: 14px; color: #666;">Merci d'utiliser Horizons !</p>
                         <hr style="margin-top: 30px; border: none; border-top: 1px solid #eee;">
                         <p style="font-size: 13px; color: #999;">
-                            Best regards,<br>The Horizons Team
+                            Cordialement,<br>L'équipe Horizons
                         </p>
                     </div>
                 </div>
@@ -187,7 +187,7 @@ const sendReminderEmail = asyncHandler(async (req, res) => {
             });
         
         return res.status(200).json(
-            new ApiResponse(200, {}, "Reminder email sent successfully")
+            new ApiResponse(200, {}, "Email de rappel envoyé avec succès")
         );
     } catch (error) {
         // Log the failed automation
@@ -201,7 +201,7 @@ const sendReminderEmail = asyncHandler(async (req, res) => {
                 created_at: new Date().toISOString()
             });
         
-        throw new ApiError(500, "Failed to send reminder email");
+        throw new ApiError(500, "Échec de l'envoi de l'email de rappel");
     }
 });
 
@@ -215,11 +215,11 @@ const getAutomationLogs = asyncHandler(async (req, res) => {
         .order('created_at', { ascending: false });
     
     if (error) {
-        throw new ApiError(500, "Failed to fetch automation logs");
+        throw new ApiError(500, "Échec de la récupération des journaux d'automatisation");
     }
     
     return res.status(200).json(
-        new ApiResponse(200, logs, "Automation logs fetched successfully")
+        new ApiResponse(200, logs, "Journaux d'automatisation récupérés avec succès")
     );
 });
 

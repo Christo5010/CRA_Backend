@@ -8,11 +8,11 @@ const createClient = asyncHandler(async (req, res) => {
     const currentUser = req.user;
 
     if (!name) {
-        throw new ApiError(400, "Client name is required");
+        throw new ApiError(400, "Le nom du client est requis");
     }
 
     if (currentUser.role !== 'admin' && currentUser.role !== 'manager') {
-        throw new ApiError(403, "Only admins and managers can create clients");
+        throw new ApiError(403, "Seuls les administrateurs et managers peuvent créer des clients");
     }
 
     const { data: existingClient } = await supabase
@@ -22,7 +22,7 @@ const createClient = asyncHandler(async (req, res) => {
         .single();
 
     if (existingClient) {
-        throw new ApiError(400, "Client with this name already exists");
+        throw new ApiError(400, "Un client avec ce nom existe déjà");
     }
 
     const clientData = {
@@ -37,11 +37,11 @@ const createClient = asyncHandler(async (req, res) => {
         .single();
 
     if (error) {
-        throw new ApiError(500, 'Failed to create client');
+        throw new ApiError(500, 'Échec de la création du client');
     }
 
     return res.status(201).json(
-        new ApiResponse(201, client, "Client created successfully")
+        new ApiResponse(201, client, "Client créé avec succès")
     );
 });
 
@@ -49,7 +49,7 @@ const getAllClients = asyncHandler(async (req, res) => {
     const currentUser = req.user;
 
     if (currentUser.role !== 'admin' && currentUser.role !== 'manager') {
-        throw new ApiError(403, "Only admins and managers can view all clients");
+        throw new ApiError(403, "Seuls les administrateurs et managers peuvent voir tous les clients");
     }
 
     const { data: clients, error } = await supabase
@@ -58,11 +58,11 @@ const getAllClients = asyncHandler(async (req, res) => {
         .order('name', { ascending: true });
 
     if (error) {
-        throw new ApiError(500, 'Failed to fetch clients');
+        throw new ApiError(500, 'Échec de la récupération des clients');
     }
 
     return res.status(200).json(
-        new ApiResponse(200, clients, "Clients fetched successfully")
+        new ApiResponse(200, clients, "Clients récupérés avec succès")
     );
 });
 
@@ -71,7 +71,7 @@ const getClientsForSelection = asyncHandler(async (req, res) => {
     const currentUser = req.user;
 
     if (currentUser.role !== 'admin' && currentUser.role !== 'manager') {
-        throw new ApiError(403, "Only admins and managers can view clients");
+        throw new ApiError(403, "Seuls les administrateurs et managers peuvent voir les clients");
     }
 
     const { data: clients, error } = await supabase
@@ -80,11 +80,11 @@ const getClientsForSelection = asyncHandler(async (req, res) => {
         .order('name', { ascending: true });
 
     if (error) {
-        throw new ApiError(500, 'Failed to fetch clients for selection');
+        throw new ApiError(500, 'Échec de la récupération des clients pour la sélection');
     }
 
     return res.status(200).json(
-        new ApiResponse(200, clients, "Clients fetched successfully")
+        new ApiResponse(200, clients, "Clients récupérés avec succès")
     );
 });
 
@@ -94,7 +94,7 @@ const getMyClient = asyncHandler(async (req, res) => {
 
     if (!currentUser.client_id) {
         return res.status(200).json(
-            new ApiResponse(200, null, "No client assigned")
+            new ApiResponse(200, null, "Aucun client attribué")
         );
     }
 
@@ -105,11 +105,11 @@ const getMyClient = asyncHandler(async (req, res) => {
         .single();
 
     if (error) {
-        throw new ApiError(500, 'Failed to fetch assigned client');
+        throw new ApiError(500, 'Échec de la récupération du client attribué');
     }
 
     return res.status(200).json(
-        new ApiResponse(200, client, "Assigned client fetched successfully")
+        new ApiResponse(200, client, "Client attribué récupéré avec succès")
     );
 });
 
@@ -121,7 +121,7 @@ const getClientById = asyncHandler(async (req, res) => {
 
     // Only admins and managers can view client details
     if (currentUser.role !== 'admin' && currentUser.role !== 'manager') {
-        throw new ApiError(403, "Only admins and managers can view client details");
+        throw new ApiError(403, "Seuls les administrateurs et managers peuvent voir les détails du client");
     }
 
     const { data: client, error } = await supabase
@@ -139,11 +139,11 @@ const getClientById = asyncHandler(async (req, res) => {
         .single();
 
     if (error) {
-        throw new ApiError(404, 'Client not found');
+        throw new ApiError(404, 'Client introuvable');
     }
 
     return res.status(200).json(
-        new ApiResponse(200, client, "Client fetched successfully")
+        new ApiResponse(200, client, "Client récupéré avec succès")
     );
 });
 
@@ -155,7 +155,7 @@ const updateClient = asyncHandler(async (req, res) => {
 
     // Only admins and managers can update clients
     if (currentUser.role !== 'admin' && currentUser.role !== 'manager') {
-        throw new ApiError(403, "Only admins and managers can update clients");
+        throw new ApiError(403, "Seuls les administrateurs et managers peuvent mettre à jour les clients");
     }
 
     // Check if client exists
@@ -166,7 +166,7 @@ const updateClient = asyncHandler(async (req, res) => {
         .single();
 
     if (!existingClient) {
-        throw new ApiError(404, 'Client not found');
+        throw new ApiError(404, 'Client introuvable');
     }
 
     // Check if new name conflicts with existing client
@@ -179,7 +179,7 @@ const updateClient = asyncHandler(async (req, res) => {
             .single();
 
         if (nameConflict) {
-            throw new ApiError(400, "Client with this name already exists");
+            throw new ApiError(400, "Un client avec ce nom existe déjà");
         }
     }
 
@@ -196,11 +196,11 @@ const updateClient = asyncHandler(async (req, res) => {
         .single();
 
     if (error) {
-        throw new ApiError(500, 'Failed to update client');
+        throw new ApiError(500, 'Échec de la mise à jour du client');
     }
 
     return res.status(200).json(
-        new ApiResponse(200, client, "Client updated successfully")
+        new ApiResponse(200, client, "Client mis à jour avec succès")
     );
 });
 
@@ -211,7 +211,7 @@ const deleteClient = asyncHandler(async (req, res) => {
 
     // Only admins can delete clients
     if (currentUser.role !== 'admin') {
-        throw new ApiError(403, "Only admins can delete clients");
+        throw new ApiError(403, "Seuls les administrateurs peuvent supprimer des clients");
     }
 
     // Check if client exists
@@ -222,7 +222,7 @@ const deleteClient = asyncHandler(async (req, res) => {
         .single();
 
     if (!existingClient) {
-        throw new ApiError(404, 'Client not found');
+        throw new ApiError(404, 'Client introuvable');
     }
 
     // Check if client has associated profiles
@@ -232,7 +232,7 @@ const deleteClient = asyncHandler(async (req, res) => {
         .eq('client_id', client_id);
 
     if (associatedProfiles && associatedProfiles.length > 0) {
-        throw new ApiError(400, "Cannot delete client with associated profiles");
+        throw new ApiError(400, "Impossible de supprimer un client avec des profils associés");
     }
 
     const { error } = await supabase
@@ -241,11 +241,11 @@ const deleteClient = asyncHandler(async (req, res) => {
         .eq('id', client_id);
 
     if (error) {
-        throw new ApiError(500, 'Failed to delete client');
+        throw new ApiError(500, 'Échec de la suppression du client');
     }
 
     return res.status(200).json(
-        new ApiResponse(200, null, "Client deleted successfully")
+        new ApiResponse(200, null, "Client supprimé avec succès")
     );
 });
 

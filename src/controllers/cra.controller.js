@@ -9,12 +9,12 @@ const createCRA = asyncHandler(async (req, res) => {
     const userId = req.user.id;
 
     if (!user_id || !month || !status) {
-        throw new ApiError(400, "User ID, month, and status are required");
+        throw new ApiError(400, "Identifiant utilisateur, mois et statut requis");
     }
 
     // Check if user is admin or creating their own CRA
     if (req.user.role !== 'admin' && req.user.id !== user_id) {
-        throw new ApiError(403, "You can only create CRAs for yourself");
+        throw new ApiError(403, "Vous ne pouvez créer des CRA que pour vous-même");
     }
 
     // Check if CRA already exists for this user and month
@@ -26,7 +26,7 @@ const createCRA = asyncHandler(async (req, res) => {
         .single();
 
     if (existingCRA) {
-        throw new ApiError(400, "CRA already exists for this user and month");
+        throw new ApiError(400, "Un CRA existe déjà pour cet utilisateur et ce mois");
     }
 
     const craData = {
@@ -45,8 +45,7 @@ const createCRA = asyncHandler(async (req, res) => {
         .single();
 
     if (error) {
-        console.log(error)
-        throw new ApiError(500, 'Failed to create CRA');
+        throw new ApiError(500, 'Échec de création du CRA');
     }
 
     return res.status(201).json(
@@ -61,7 +60,7 @@ const getUserCRAs = asyncHandler(async (req, res) => {
 
     // Check if user is admin or requesting their own CRAs
     if (currentUser.role !== 'admin' && currentUser.id !== user_id) {
-        throw new ApiError(403, "You can only view your own CRAs");
+        throw new ApiError(403, "Vous ne pouvez consulter que vos propres CRA");
     }
 
     const { data: cras, error } = await supabase
@@ -71,7 +70,7 @@ const getUserCRAs = asyncHandler(async (req, res) => {
         .order('month', { ascending: false });
 
     if (error) {
-        throw new ApiError(500, 'Failed to fetch CRAs');
+        throw new ApiError(500, 'Échec de la récupération des CRA');
     }
 
     return res.status(200).json(
@@ -84,7 +83,7 @@ const getAllCRAs = asyncHandler(async (req, res) => {
     const currentUser = req.user;
 
     if (currentUser.role !== 'admin') {
-        throw new ApiError(403, "Only admins can view all CRAs");
+        throw new ApiError(403, "Seuls les administrateurs peuvent voir tous les CRA");
     }
 
     const { data: cras, error } = await supabase
@@ -105,8 +104,7 @@ const getAllCRAs = asyncHandler(async (req, res) => {
         .order('month', { ascending: false });
 
     if (error) {
-        console.log(error)
-        throw new ApiError(500, 'Failed to fetch CRAs');
+        throw new ApiError(500, 'Échec de la récupération des CRA');
     }
 
     return res.status(200).json(
@@ -138,12 +136,12 @@ const getCRAById = asyncHandler(async (req, res) => {
         .single();
 
     if (error) {
-        throw new ApiError(404, 'CRA not found');
+        throw new ApiError(404, 'CRA introuvable');
     }
 
     // Check if user is admin or owns this CRA
     if (currentUser.role !== 'admin' && currentUser.id !== cra.user_id) {
-        throw new ApiError(403, "You can only view your own CRAs");
+        throw new ApiError(403, "Vous ne pouvez consulter que vos propres CRA");
     }
 
     return res.status(200).json(
@@ -157,7 +155,7 @@ const updateCRA = asyncHandler(async (req, res) => {
     const { status, days, signature_dataurl } = req.body;
     const currentUser = req.user;
 
-    console.log('[CRA][updateCRA] called', { cra_id, status, hasDays: !!days, hasSig: !!signature_dataurl, user: currentUser?.id, role: currentUser?.role });
+    
 
     // Get the CRA first to check ownership
     const { data: existingCRA } = await supabase
@@ -167,14 +165,12 @@ const updateCRA = asyncHandler(async (req, res) => {
         .single();
 
     if (!existingCRA) {
-        console.warn('[CRA][updateCRA] CRA not found', { cra_id });
-        throw new ApiError(404, 'CRA not found');
+        throw new ApiError(404, 'CRA introuvable');
     }
 
     // Check if user is admin or owns this CRA
     if (currentUser.role !== 'admin' && currentUser.id !== existingCRA.user_id) {
-        console.warn('[CRA][updateCRA] Forbidden update', { cra_id, owner: existingCRA.user_id, caller: currentUser.id });
-        throw new ApiError(403, "You can only update your own CRAs");
+        throw new ApiError(403, "Vous ne pouvez modifier que vos propres CRA");
     }
 
     const updateData = {
@@ -189,7 +185,7 @@ const updateCRA = asyncHandler(async (req, res) => {
         try {
             const matches = signature_dataurl.match(/^data:(image\/\w+);base64,(.+)$/);
             if (!matches) {
-                throw new Error('Invalid signature data URL');
+                throw new Error('URL de signature invalide');
             }
             const mimeType = matches[1];
             const b64 = matches[2];
@@ -209,8 +205,7 @@ const updateCRA = asyncHandler(async (req, res) => {
                 .getPublicUrl(uploaded.path);
             updateData.signature_url = publicUrlData?.publicUrl || null;
         } catch (e) {
-            console.error('[CRA][updateCRA] signature upload failed', e);
-            throw new ApiError(500, 'Failed to save signature');
+            throw new ApiError(500, 'Échec de l’enregistrement de la signature');
         }
     }
 
@@ -222,11 +217,10 @@ const updateCRA = asyncHandler(async (req, res) => {
         .single();
 
     if (error) {
-        console.error('[CRA][updateCRA] update error', error);
-        throw new ApiError(500, 'Failed to update CRA');
+        throw new ApiError(500, 'Échec de la mise à jour du CRA');
     }
 
-    console.log('[CRA][updateCRA] success', { id: cra.id, status: cra.status, hasSignatureUrl: !!cra.signature_url });
+    
 
     return res.status(200).json(
         new ApiResponse(200, cra, "CRA updated successfully")
@@ -246,12 +240,12 @@ const deleteCRA = asyncHandler(async (req, res) => {
         .single();
 
     if (!existingCRA) {
-        throw new ApiError(404, 'CRA not found');
+        throw new ApiError(404, 'CRA introuvable');
     }
 
     // Check if user is admin or owns this CRA
     if (currentUser.role !== 'admin' && currentUser.id !== existingCRA.user_id) {
-        throw new ApiError(403, "You can only delete your own CRAs");
+        throw new ApiError(403, "Vous ne pouvez supprimer que vos propres CRA");
     }
 
     const { error } = await supabase
@@ -260,11 +254,11 @@ const deleteCRA = asyncHandler(async (req, res) => {
         .eq('id', cra_id);
 
     if (error) {
-        throw new ApiError(500, 'Failed to delete CRA');
+        throw new ApiError(500, 'Échec de la suppression du CRA');
     }
 
     return res.status(200).json(
-        new ApiResponse(200, null, "CRA deleted successfully")
+        new ApiResponse(200, null, "CRA supprimé avec succès")
     );
 });
 
@@ -273,10 +267,9 @@ const getDashboardCRAs = asyncHandler(async (req, res) => {
     const currentUser = req.user;
     const { start_date, end_date, consultant_id, status } = req.query;
 
-    console.log('[CRA][dashboard] called', { caller: currentUser?.id, role: currentUser?.role, start_date, end_date, consultant_id, status });
-
+    
     if (currentUser.role !== 'admin' && currentUser.role !== 'manager') {
-        throw new ApiError(403, "Only managers and admins can access dashboard CRAs");
+        throw new ApiError(403, "Seuls les managers et administrateurs peuvent accéder aux CRA du tableau de bord");
     }
 
     let query = supabase
@@ -309,14 +302,11 @@ const getDashboardCRAs = asyncHandler(async (req, res) => {
     const { data: cras, error } = await query.order('month', { ascending: false });
 
     if (error) {
-        console.error('[CRA][dashboard] query error', error);
-        throw new ApiError(500, 'Failed to fetch dashboard CRAs');
+        throw new ApiError(500, 'Échec de la récupération des CRA du tableau de bord');
     }
 
-    console.log('[CRA][dashboard] returning', { count: cras?.length || 0 });
-
     return res.status(200).json(
-        new ApiResponse(200, cras, "Dashboard CRAs fetched successfully")
+        new ApiResponse(200, cras, "CRA du tableau de bord récupérés avec succès")
     );
 });
 

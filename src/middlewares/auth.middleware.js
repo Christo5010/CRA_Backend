@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 
 const verifyJWT = asyncHandler(async (req, res, next) => {
   const token = req.header("Authorization")?.replace("Bearer ", "");
-  if (!token) throw new ApiError(401, "Unauthorized request");
+  if (!token) throw new ApiError(401, "Requête non autorisée");
 
   try {
     const decoded = jwt.verify(token, process.env.SUPABASE_JWT_SECRET); 
@@ -16,8 +16,8 @@ const verifyJWT = asyncHandler(async (req, res, next) => {
       .eq("id", decoded.sub)
       .single();
 
-    if (error || !user) throw new ApiError(401, "Invalid Access Token");
-    if (!user.active) throw new ApiError(403, "Account is deactivated");
+    if (error || !user) throw new ApiError(401, "Jeton d'accès invalide");
+    if (!user.active) throw new ApiError(403, "Compte désactivé");
 
     req.user = {
       ...user,
@@ -26,8 +26,7 @@ const verifyJWT = asyncHandler(async (req, res, next) => {
 
     next();
   } catch (err) {
-    console.error("JWT verification failed:", err.message);
-    throw new ApiError(401, "Invalid access token");
+    throw new ApiError(401, "Jeton d'accès invalide");
   }
 });
 

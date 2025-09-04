@@ -8,12 +8,12 @@ const createActionLog = asyncHandler(async (req, res) => {
     const currentUser = req.user;
 
     if (!action) {
-        throw new ApiError(400, "Action is required");
+        throw new ApiError(400, "L'action est requise");
     }
 
     // Users can only log actions for themselves, unless they're admin
     if (currentUser.role !== 'admin' && currentUser.id !== user_id) {
-        throw new ApiError(403, "You can only log actions for yourself");
+        throw new ApiError(403, "Vous ne pouvez enregistrer des actions que pour vous-même");
     }
 
     const logData = {
@@ -30,12 +30,11 @@ const createActionLog = asyncHandler(async (req, res) => {
         .single();
 
     if (error) {
-        console.log(error)
-        throw new ApiError(500, 'Failed to create action log');
+        throw new ApiError(500, 'Échec de la création du journal d\'action');
     }
 
     return res.status(201).json(
-        new ApiResponse(201, logEntry, "Action logged successfully")
+        new ApiResponse(201, logEntry, "Action enregistrée avec succès")
     );
 });
 
@@ -46,7 +45,7 @@ const getUserActionLogs = asyncHandler(async (req, res) => {
 
     // Users can only view their own logs, unless they're admin
     if (currentUser.role !== 'admin' && currentUser.id !== user_id) {
-        throw new ApiError(403, "You can only view your own action logs");
+        throw new ApiError(403, "Vous ne pouvez consulter que vos propres journaux d'action");
     }
 
     const { data: logs, error } = await supabase
@@ -64,11 +63,11 @@ const getUserActionLogs = asyncHandler(async (req, res) => {
         .order('created_at', { ascending: false });
 
     if (error) {
-        throw new ApiError(500, 'Failed to fetch action logs');
+        throw new ApiError(500, 'Échec de la récupération des journaux d\'action');
     }
 
     return res.status(200).json(
-        new ApiResponse(200, logs, "Action logs fetched successfully")
+        new ApiResponse(200, logs, "Journaux d'action récupérés avec succès")
     );
 });
 
@@ -78,7 +77,7 @@ const getAllActionLogs = asyncHandler(async (req, res) => {
     const { page = 1, limit = 50, user_id, action, start_date, end_date } = req.query;
 
     if (currentUser.role !== 'admin') {
-        throw new ApiError(403, "Only admins can view all action logs");
+        throw new ApiError(403, "Seuls les administrateurs peuvent voir tous les journaux d'action");
     }
 
     let query = supabase
@@ -111,7 +110,7 @@ const getAllActionLogs = asyncHandler(async (req, res) => {
     const { data: logs, error, count } = await query;
 
     if (error) {
-        throw new ApiError(500, 'Failed to fetch action logs');
+        throw new ApiError(500, 'Échec de la récupération des journaux d\'action');
     }
 
     return res.status(200).json(
@@ -123,7 +122,7 @@ const getAllActionLogs = asyncHandler(async (req, res) => {
                 total: count,
                 pages: Math.ceil(count / limit)
             }
-        }, "Action logs fetched successfully")
+        }, "Journaux d'action récupérés avec succès")
     );
 });
 
@@ -147,16 +146,16 @@ const getActionLogById = asyncHandler(async (req, res) => {
         .single();
 
     if (error) {
-        throw new ApiError(404, 'Action log not found');
+        throw new ApiError(404, 'Journal d\'action introuvable');
     }
 
     // Users can only view their own logs, unless they're admin
     if (currentUser.role !== 'admin' && currentUser.id !== logEntry.user_id) {
-        throw new ApiError(403, "You can only view your own action logs");
+        throw new ApiError(403, "Vous ne pouvez consulter que vos propres journaux d'action");
     }
 
     return res.status(200).json(
-        new ApiResponse(200, logEntry, "Action log fetched successfully")
+        new ApiResponse(200, logEntry, "Journal d'action récupéré avec succès")
     );
 });
 
@@ -166,7 +165,7 @@ const getDashboardActionLogs = asyncHandler(async (req, res) => {
     const { limit = 20 } = req.query;
 
     if (currentUser.role !== 'admin' && currentUser.role !== 'manager') {
-        throw new ApiError(403, "Only managers and admins can access dashboard action logs");
+        throw new ApiError(403, "Seuls les managers et administrateurs peuvent accéder aux journaux d'action du tableau de bord");
     }
 
     let query = supabase
@@ -197,7 +196,7 @@ const getDashboardActionLogs = asyncHandler(async (req, res) => {
         } else {
             // If no team members, return empty
             return res.status(200).json(
-                new ApiResponse(200, { logs: [] }, "No action logs found")
+                new ApiResponse(200, { logs: [] }, "Aucun journal d'action trouvé")
             );
         }
     }
@@ -205,12 +204,11 @@ const getDashboardActionLogs = asyncHandler(async (req, res) => {
     const { data: logs, error } = await query;
 
     if (error) {
-        console.log(error)
-        throw new ApiError(500, 'Failed to fetch dashboard action logs');
+        throw new ApiError(500, 'Échec de la récupération des journaux d\'action du tableau de bord');
     }
 
     return res.status(200).json(
-        new ApiResponse(200, { logs }, "Dashboard action logs fetched successfully")
+        new ApiResponse(200, { logs }, "Journaux d'action du tableau de bord récupérés avec succès")
     );
 });
 
@@ -220,7 +218,7 @@ const deleteActionLog = asyncHandler(async (req, res) => {
     const currentUser = req.user;
 
     if (currentUser.role !== 'admin') {
-        throw new ApiError(403, "Only admins can delete action logs");
+        throw new ApiError(403, "Seuls les administrateurs peuvent supprimer des journaux d'action");
     }
 
     const { error } = await supabase
@@ -229,11 +227,11 @@ const deleteActionLog = asyncHandler(async (req, res) => {
         .eq('id', log_id);
 
     if (error) {
-        throw new ApiError(500, 'Failed to delete action log');
+        throw new ApiError(500, 'Échec de la suppression du journal d\'action');
     }
 
     return res.status(200).json(
-        new ApiResponse(200, null, "Action log deleted successfully")
+        new ApiResponse(200, null, "Journal d'action supprimé avec succès")
     );
 });
 

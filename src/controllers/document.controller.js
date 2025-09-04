@@ -8,11 +8,11 @@ const uploadDocument = asyncHandler(async (req, res) => {
     const userId = req.user.id;
 
     if (!req.file) {
-        throw new ApiError(400, "Document file is required");
+        throw new ApiError(400, "Le fichier du document est requis");
     }
 
     if (!title || !document_type) {
-        throw new ApiError(400, "Title and document type are required");
+        throw new ApiError(400, "Le titre et le type de document sont requis");
     }
 
     // Upload file to Supabase Storage (bucket: documents)
@@ -27,7 +27,7 @@ const uploadDocument = asyncHandler(async (req, res) => {
         });
 
     if (uploadError) {
-        throw new ApiError(500, 'Failed to upload document file');
+        throw new ApiError(500, 'Échec de l\'upload du fichier document');
     }
 
     const { data: publicUrlData } = supabase
@@ -52,11 +52,11 @@ const uploadDocument = asyncHandler(async (req, res) => {
         .single();
 
     if (error) {
-        throw new ApiError(500, 'Failed to upload document');
+        throw new ApiError(500, 'Échec de l\'upload du document');
     }
 
     return res.status(201).json(
-        new ApiResponse(201, document, "Document uploaded successfully")
+        new ApiResponse(201, document, "Document uploadé avec succès")
     );
 });
 
@@ -70,11 +70,11 @@ const getDocuments = asyncHandler(async (req, res) => {
         .order('created_at', { ascending: false });
 
     if (error) {
-        throw new ApiError(500, 'Failed to fetch documents');
+        throw new ApiError(500, 'Échec de la récupération des documents');
     }
 
     return res.status(200).json(
-        new ApiResponse(200, documents, "Documents fetched successfully")
+        new ApiResponse(200, documents, "Documents récupérés avec succès")
     );
 });
 
@@ -90,11 +90,11 @@ const getDocumentById = asyncHandler(async (req, res) => {
         .single();
 
     if (error || !document) {
-        throw new ApiError(404, "Document not found");
+        throw new ApiError(404, "Document introuvable");
     }
 
     return res.status(200).json(
-        new ApiResponse(200, document, "Document fetched successfully")
+        new ApiResponse(200, document, "Document récupéré avec succès")
     );
 });
 
@@ -112,7 +112,7 @@ const updateDocument = asyncHandler(async (req, res) => {
         .single();
 
     if (checkError || !existingDoc) {
-        throw new ApiError(404, "Document not found");
+        throw new ApiError(404, "Document introuvable");
     }
 
     const updateFields = {};
@@ -121,7 +121,7 @@ const updateDocument = asyncHandler(async (req, res) => {
     if (document_type) updateFields.document_type = document_type;
 
     if (Object.keys(updateFields).length === 0) {
-        throw new ApiError(400, "No fields to update");
+        throw new ApiError(400, "Aucun champ à mettre à jour");
     }
 
     const { data: document, error } = await supabase
@@ -132,11 +132,11 @@ const updateDocument = asyncHandler(async (req, res) => {
         .single();
 
     if (error) {
-        throw new ApiError(500, 'Failed to update document');
+        throw new ApiError(500, 'Échec de la mise à jour du document');
     }
 
     return res.status(200).json(
-        new ApiResponse(200, document, "Document updated successfully")
+        new ApiResponse(200, document, "Document mis à jour avec succès")
     );
 });
 
@@ -153,7 +153,7 @@ const deleteDocument = asyncHandler(async (req, res) => {
         .single();
 
     if (checkError || !existingDoc) {
-        throw new ApiError(404, "Document not found");
+        throw new ApiError(404, "Document introuvable");
     }
 
     const { error } = await supabase
@@ -162,11 +162,11 @@ const deleteDocument = asyncHandler(async (req, res) => {
         .eq('id', id);
 
     if (error) {
-        throw new ApiError(500, 'Failed to delete document');
+        throw new ApiError(500, 'Échec de la suppression du document');
     }
 
     return res.status(200).json(
-        new ApiResponse(200, {}, "Document deleted successfully")
+        new ApiResponse(200, {}, "Document supprimé avec succès")
     );
 });
 
@@ -188,7 +188,7 @@ const signDocument = asyncHandler(async (req, res) => {
                 upsert: false
             });
         if (uploadError) {
-            throw new ApiError(500, 'Failed to upload signature');
+            throw new ApiError(500, 'Échec de l\'upload de la signature');
         }
         const { data: publicUrlData } = supabase
             .storage
@@ -200,7 +200,7 @@ const signDocument = asyncHandler(async (req, res) => {
     } else if (signature_text) {
         signaturePayload = { signature_type: 'text', signature_text };
     } else {
-        throw new ApiError(400, 'Signature is required (file upload or signature_text)');
+        throw new ApiError(400, 'La signature est requise (upload de fichier ou signature_text)');
     }
 
     // Check if document exists and belongs to user
@@ -212,7 +212,7 @@ const signDocument = asyncHandler(async (req, res) => {
         .single();
 
     if (checkError || !existingDoc) {
-        throw new ApiError(404, "Document not found");
+        throw new ApiError(404, "Document introuvable");
     }
 
     // Store signature in Supabase
@@ -228,7 +228,7 @@ const signDocument = asyncHandler(async (req, res) => {
         .single();
 
     if (error) {
-        throw new ApiError(500, 'Failed to sign document');
+        throw new ApiError(500, 'Échec de la signature du document');
     }
 
     // Update document status to signed
@@ -241,7 +241,7 @@ const signDocument = asyncHandler(async (req, res) => {
         .eq('id', id);
 
     return res.status(200).json(
-        new ApiResponse(200, signature, "Document signed successfully")
+        new ApiResponse(200, signature, "Document signé avec succès")
     );
 });
 
