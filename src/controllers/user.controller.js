@@ -254,7 +254,7 @@ const createUser = asyncHandler(async (req, res) => {
 			}
 		}
 
-		// Always generate a fresh Horizons invite token (valid 48h)
+		// Always generate a fresh Seven Opportunity invite token (valid 48h)
 		const token = crypto.randomUUID();
 		console.log('Generated invite token:', token);
 		
@@ -266,11 +266,11 @@ const createUser = asyncHandler(async (req, res) => {
 		try {
 			await sendMail({
 				to: email,
-				subject: 'Set up your Horizons account password',
+				subject: 'Set up your Seven Opportunity account password',
 				html: `
 					<div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px;">
 						<div style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-							<h2 style="color: #2a2a2a;">Welcome to Horizons</h2>
+							<h2 style="color: #2a2a2a;">Welcome to Seven Opportunity</h2>
 							<p style="font-size: 16px; color: #444;">Hello ${name},</p>
 							<p style="font-size: 15px; color: #444;">Click the link below to set your password and get started.</p>
 							<p><a href="${process.env.FRONTEND_URL || ''}/new-password?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}" style="color:#2b6cb0">Create your password</a></p>

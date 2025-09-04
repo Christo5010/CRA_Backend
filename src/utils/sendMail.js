@@ -11,7 +11,7 @@ export const sendMail = async ({ to, subject, html }) => {
     },
   });
 
-  const fromAddress = `Horizons <${process.env.SMTP_FROM || process.env.SMTP_USER}>`;
+  const fromAddress = `Seven Opportunity <${process.env.SMTP_FROM || process.env.SMTP_USER}>`;
 
   try {
     await transporter.sendMail({
