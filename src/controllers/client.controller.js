@@ -88,6 +88,31 @@ const getClientsForSelection = asyncHandler(async (req, res) => {
     );
 });
 
+// Get client assigned to current user (for consultants)
+const getMyClient = asyncHandler(async (req, res) => {
+    const currentUser = req.user;
+
+    if (!currentUser.client_id) {
+        return res.status(200).json(
+            new ApiResponse(200, null, "No client assigned")
+        );
+    }
+
+    const { data: client, error } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('id', currentUser.client_id)
+        .single();
+
+    if (error) {
+        throw new ApiError(500, 'Failed to fetch assigned client');
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, client, "Assigned client fetched successfully")
+    );
+});
+
 
 // Get client by ID
 const getClientById = asyncHandler(async (req, res) => {
@@ -253,5 +278,6 @@ export {
     getClientById,
     updateClient,
     deleteClient,
-    getClientsForSelection
+    getClientsForSelection,
+    getMyClient
 };

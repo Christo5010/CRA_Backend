@@ -12,7 +12,7 @@ const verifyJWT = asyncHandler(async (req, res, next) => {
 
     const { data: user, error } = await supabase
       .from("profiles")
-      .select("id, name, role, active")
+      .select("id, name, role, active, client_id")
       .eq("id", decoded.sub)
       .single();
 

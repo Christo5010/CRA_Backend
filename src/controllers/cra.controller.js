@@ -45,6 +45,7 @@ const createCRA = asyncHandler(async (req, res) => {
         .single();
 
     if (error) {
+        console.log(error)
         throw new ApiError(500, 'Failed to create CRA');
     }
 
@@ -90,12 +91,12 @@ const getAllCRAs = asyncHandler(async (req, res) => {
         .from('cras')
         .select(`
             *,
-            profiles:user_id (
+            profiles:profiles!cras_user_id_fkey (
                 id,
                 name,
                 email,
                 role,
-                clients (
+                clients:client_id (
                     id,
                     name
                 )
@@ -156,6 +157,8 @@ const updateCRA = asyncHandler(async (req, res) => {
     const { status, days } = req.body;
     const currentUser = req.user;
 
+    console.log('[CRA][updateCRA] called', { cra_id, status, hasDays: !!days, user: currentUser?.id, role: currentUser?.role });
+
     // Get the CRA first to check ownership
     const { data: existingCRA } = await supabase
         .from('cras')
@@ -164,11 +167,13 @@ const updateCRA = asyncHandler(async (req, res) => {
         .single();
 
     if (!existingCRA) {
+        console.warn('[CRA][updateCRA] CRA not found', { cra_id });
         throw new ApiError(404, 'CRA not found');
     }
 
     // Check if user is admin or owns this CRA
     if (currentUser.role !== 'admin' && currentUser.id !== existingCRA.user_id) {
+        console.warn('[CRA][updateCRA] Forbidden update', { cra_id, owner: existingCRA.user_id, caller: currentUser.id });
         throw new ApiError(403, "You can only update your own CRAs");
     }
 
@@ -187,8 +192,11 @@ const updateCRA = asyncHandler(async (req, res) => {
         .single();
 
     if (error) {
+        console.error('[CRA][updateCRA] update error', error);
         throw new ApiError(500, 'Failed to update CRA');
     }
+
+    console.log('[CRA][updateCRA] success', { id: cra.id, status: cra.status });
 
     return res.status(200).json(
         new ApiResponse(200, cra, "CRA updated successfully")
@@ -235,6 +243,8 @@ const getDashboardCRAs = asyncHandler(async (req, res) => {
     const currentUser = req.user;
     const { start_date, end_date, consultant_id, status } = req.query;
 
+    console.log('[CRA][dashboard] called', { caller: currentUser?.id, role: currentUser?.role, start_date, end_date, consultant_id, status });
+
     if (currentUser.role !== 'admin' && currentUser.role !== 'manager') {
         throw new ApiError(403, "Only managers and admins can access dashboard CRAs");
     }
@@ -243,12 +253,12 @@ const getDashboardCRAs = asyncHandler(async (req, res) => {
         .from('cras')
         .select(`
             *,
-            profiles:user_id (
+            profiles:profiles!cras_user_id_fkey (
                 id,
                 name,
                 email,
                 role,
-                clients (
+                clients:client_id (
                     id,
                     name
                 )
@@ -269,8 +279,11 @@ const getDashboardCRAs = asyncHandler(async (req, res) => {
     const { data: cras, error } = await query.order('month', { ascending: false });
 
     if (error) {
+        console.error('[CRA][dashboard] query error', error);
         throw new ApiError(500, 'Failed to fetch dashboard CRAs');
     }
+
+    console.log('[CRA][dashboard] returning', { count: cras?.length || 0 });
 
     return res.status(200).json(
         new ApiResponse(200, cras, "Dashboard CRAs fetched successfully")

@@ -6,7 +6,8 @@ import {
     getClientById,
     updateClient,
     deleteClient,
-    getClientsForSelection
+    getClientsForSelection,
+    getMyClient
 } from "../controllers/client.controller.js";
 
 const router = express.Router();
@@ -16,6 +17,7 @@ router.use(verifyJWT);
 
 // Client CRUD operations
 router.route("/").post(createClient).get(getAllClients);
+router.route("/my-client").get(getMyClient);
 router.route("/selection").get(getClientsForSelection);
 router.route("/:client_id")
     .get(getClientById)
