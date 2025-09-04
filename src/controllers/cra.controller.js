@@ -154,10 +154,10 @@ const getCRAById = asyncHandler(async (req, res) => {
 // Update CRA
 const updateCRA = asyncHandler(async (req, res) => {
     const { cra_id } = req.params;
-    const { status, days } = req.body;
+    const { status, days, signature_dataurl } = req.body;
     const currentUser = req.user;
 
-    console.log('[CRA][updateCRA] called', { cra_id, status, hasDays: !!days, user: currentUser?.id, role: currentUser?.role });
+    console.log('[CRA][updateCRA] called', { cra_id, status, hasDays: !!days, hasSig: !!signature_dataurl, user: currentUser?.id, role: currentUser?.role });
 
     // Get the CRA first to check ownership
     const { data: existingCRA } = await supabase
@@ -184,6 +184,36 @@ const updateCRA = asyncHandler(async (req, res) => {
     if (status !== undefined) updateData.status = status;
     if (days !== undefined) updateData.days = days;
 
+    // Handle signature upload if provided
+    if (signature_dataurl) {
+        try {
+            const matches = signature_dataurl.match(/^data:(image\/\w+);base64,(.+)$/);
+            if (!matches) {
+                throw new Error('Invalid signature data URL');
+            }
+            const mimeType = matches[1];
+            const b64 = matches[2];
+            const buffer = Buffer.from(b64, 'base64');
+            const ext = mimeType.split('/')[1] || 'png';
+            const objectKey = `cra_${cra_id}/sig_${Date.now()}.${ext}`;
+            const { data: uploaded, error: uploadError } = await supabase
+                .storage
+                .from('signatures')
+                .upload(objectKey, buffer, { contentType: mimeType, upsert: false });
+            if (uploadError) {
+                throw uploadError;
+            }
+            const { data: publicUrlData } = await supabase
+                .storage
+                .from('signatures')
+                .getPublicUrl(uploaded.path);
+            updateData.signature_url = publicUrlData?.publicUrl || null;
+        } catch (e) {
+            console.error('[CRA][updateCRA] signature upload failed', e);
+            throw new ApiError(500, 'Failed to save signature');
+        }
+    }
+
     const { data: cra, error } = await supabase
         .from('cras')
         .update(updateData)
@@ -196,7 +226,7 @@ const updateCRA = asyncHandler(async (req, res) => {
         throw new ApiError(500, 'Failed to update CRA');
     }
 
-    console.log('[CRA][updateCRA] success', { id: cra.id, status: cra.status });
+    console.log('[CRA][updateCRA] success', { id: cra.id, status: cra.status, hasSignatureUrl: !!cra.signature_url });
 
     return res.status(200).json(
         new ApiResponse(200, cra, "CRA updated successfully")
