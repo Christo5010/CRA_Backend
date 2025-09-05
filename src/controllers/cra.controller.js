@@ -152,7 +152,7 @@ const getCRAById = asyncHandler(async (req, res) => {
 // Update CRA
 const updateCRA = asyncHandler(async (req, res) => {
     const { cra_id } = req.params;
-    const { status, days, signature_dataurl } = req.body;
+    const { status, days, signature_dataurl,signature_text } = req.body;
     const currentUser = req.user;
 
     
@@ -179,6 +179,7 @@ const updateCRA = asyncHandler(async (req, res) => {
 
     if (status !== undefined) updateData.status = status;
     if (days !== undefined) updateData.days = days;
+    if (signature_text !== undefined) updateData.signature_text = signature_text;
 
     // Handle signature upload if provided
     if (signature_dataurl) {
