@@ -152,12 +152,9 @@ const getCRAById = asyncHandler(async (req, res) => {
 // Update CRA
 const updateCRA = asyncHandler(async (req, res) => {
     const { cra_id } = req.params;
-    const { status, days, signature_dataurl,signature_text } = req.body;
+    const { status, days, signature_dataurl,signature_text,comment } = req.body;
     const currentUser = req.user;
 
-    
-
-    // Get the CRA first to check ownership
     const { data: existingCRA } = await supabase
         .from('cras')
         .select('*')
@@ -179,9 +176,11 @@ const updateCRA = asyncHandler(async (req, res) => {
 
     if (status !== undefined) updateData.status = status;
     if (days !== undefined) updateData.days = days;
+    console.log(days)
     if (signature_text !== undefined) updateData.signature_text = signature_text;
+    console.log(comment)
+    if (comment !== undefined) updateData.comment = comment;
 
-    // Handle signature upload if provided
     if (signature_dataurl) {
         try {
             const matches = signature_dataurl.match(/^data:(image\/\w+);base64,(.+)$/);
@@ -220,8 +219,6 @@ const updateCRA = asyncHandler(async (req, res) => {
     if (error) {
         throw new ApiError(500, 'Échec de la mise à jour du CRA');
     }
-
-    
 
     return res.status(200).json(
         new ApiResponse(200, cra, "CRA updated successfully")
