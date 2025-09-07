@@ -96,21 +96,31 @@ const changeCurrentPassword = asyncHandler(async(req,res)=>{
 		throw new ApiError(400, "L'ancien mot de passe et le nouveau mot de passe sont requis");
 	}
 	
-	try {
-		const { error } = await supabase.auth.updateUser({
-			password: newPassword
-		});
-		
-		if (error) {
-			throw new ApiError(400, "Échec du changement de mot de passe");
-		}
-		
-		return res.status(200).json(
-			new ApiResponse(200,{}, "Mot de passe modifié avec succès")
-		)
-	} catch (error) {
+	// Récupérer l'email du profil (req.user.email n'est pas présent dans le middleware actuel)
+	const { data: profileForEmail, error: profileEmailErr } = await supabase
+		.from('profiles')
+		.select('email')
+		.eq('id', req.user.id)
+		.single();
+	if (profileEmailErr || !profileForEmail?.email) {
+		throw new ApiError(500, "Impossible de récupérer l'email de l'utilisateur");
+	}
+
+	// Vérifier l'ancien mot de passe en tentant une connexion
+	const { error: signInErr } = await supabase.auth.signInWithPassword({ email: profileForEmail.email, password: oldPassword });
+	if (signInErr) {
+		throw new ApiError(401, 'Ancien mot de passe incorrect');
+	}
+
+	// Utiliser l'API admin pour mettre à jour le mot de passe
+	const { error: updateErr } = await supabase.auth.admin.updateUserById(req.user.id, {
+		password: newPassword
+	});
+	if (updateErr) {
 		throw new ApiError(500, "Échec du changement de mot de passe");
 	}
+
+	return res.status(200).json(new ApiResponse(200,{}, "Mot de passe modifié avec succès"))
 })
 
 const getCurrentUser = asyncHandler(async(req,res)=>{
@@ -131,7 +141,10 @@ const updateAccount = asyncHandler(async(req,res)=>{
 	
 	const updateFields = {};
 	if(name !== undefined) updateFields.name = name;
-	if(email !== undefined) updateFields.email = email;
+	// Do not directly update email here. Email change now uses verify flow.
+	if(email !== undefined) {
+		return res.status(400).json(new ApiResponse(400, {}, "La mise à jour de l'email nécessite une vérification."));
+	}
 	
 	updateFields.updated_at = new Date().toISOString();
 	
@@ -152,6 +165,102 @@ const updateAccount = asyncHandler(async(req,res)=>{
 	
 	return res.status(200).json(new ApiResponse(200, user, "Profil mis à jour avec succès"));
 })
+
+// Start email change: send code and store in Redis
+const requestEmailChange = asyncHandler(async (req, res) => {
+    const { newEmail } = req.body;
+    if (!newEmail) {
+        throw new ApiError(400, 'Nouvel email requis');
+    }
+
+    // Optional: ensure email not same
+    const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('id', req.user.id)
+        .single();
+
+    if (currentProfile && currentProfile.email === newEmail) {
+        throw new ApiError(400, 'Le nouvel email est identique à l’ancien');
+    }
+
+    // Generate 6-digit code
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const redis = await ensureConnection();
+    await redis.set(`emailchange:${req.user.id}`, JSON.stringify({ newEmail, code }), { EX: 15 * 60 });
+
+    try {
+        await sendMail({
+            to: newEmail,
+            subject: 'Vérification de votre nouvel email',
+            text: `Votre code de vérification: ${code}`,
+            html: `<p>Votre code de vérification est <b>${code}</b>. Il expire dans 15 minutes.</p>`
+        });
+    } catch (e) {
+        // Clean stored code if email send fails
+        await redis.del(`emailchange:${req.user.id}`);
+        throw new ApiError(500, "Échec de l'envoi du code de vérification");
+    }
+
+    return res.status(200).json(new ApiResponse(200, {}, 'Code de vérification envoyé'));
+});
+
+// Verify email change code and apply update
+const verifyEmailChange = asyncHandler(async (req, res) => {
+    const { code } = req.body;
+    if (!code) {
+        throw new ApiError(400, 'Code requis');
+    }
+
+    const redis = await ensureConnection();
+    const payload = await redis.get(`emailchange:${req.user.id}`);
+    if (!payload) {
+        throw new ApiError(400, 'Code invalide ou expiré');
+    }
+
+    let parsed;
+    try { parsed = JSON.parse(payload); } catch { parsed = null; }
+    if (!parsed || parsed.code !== code) {
+        throw new ApiError(400, 'Code invalide ou expiré');
+    }
+
+    // Read current profile to preserve old email for rollback if needed
+    const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('id', req.user.id)
+        .single();
+    const oldEmail = currentProfile?.email || null;
+
+    // 1) Update Supabase Auth user email first (source of truth for login)
+    const { error: authUpdateErr } = await supabase.auth.admin.updateUserById(req.user.id, {
+        email: parsed.newEmail,
+        email_confirm: true
+    });
+    if (authUpdateErr) {
+        throw new ApiError(500, "Échec de la mise à jour de l'email (auth)");
+    }
+
+    // 2) Then update our profiles table email
+    const { data: updatedProfile, error: profileErr } = await supabase
+        .from('profiles')
+        .update({ email: parsed.newEmail, updated_at: new Date().toISOString() })
+        .eq('id', req.user.id)
+        .select('*')
+        .single();
+
+    if (profileErr) {
+        // Try to rollback auth email to old value
+        if (oldEmail) {
+            await supabase.auth.admin.updateUserById(req.user.id, { email: oldEmail, email_confirm: true });
+        }
+        throw new ApiError(500, "Échec de la mise à jour de l'email (profil)");
+    }
+
+    await redis.del(`emailchange:${req.user.id}`);
+
+    return res.status(200).json(new ApiResponse(200, updatedProfile, 'Email mis à jour'));
+});
 
 const getAllUsers = asyncHandler(async (req, res) => {
 	if (req.user.role !== 'admin') {
@@ -551,6 +660,8 @@ export {
 	changeCurrentPassword,
 	getCurrentUser,
 	updateAccount,
+	requestEmailChange,
+	verifyEmailChange,
 	getAllUsers,
 	createUser,
 	updateUser,

@@ -176,9 +176,7 @@ const updateCRA = asyncHandler(async (req, res) => {
 
     if (status !== undefined) updateData.status = status;
     if (days !== undefined) updateData.days = days;
-    console.log(days)
     if (signature_text !== undefined) updateData.signature_text = signature_text;
-    console.log(comment)
     if (comment !== undefined) updateData.comment = comment;
 
     if (signature_dataurl) {
