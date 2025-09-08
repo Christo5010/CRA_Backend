@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { supabase } from "../utils/supabaseClient.js";
 import { sendMail } from "../utils/sendMail.js";
+import { formatISO, startOfMonth } from "date-fns";
 
 const sendWelcomeEmail = asyncHandler(async (req, res) => {
     const { userId, email, fullname } = req.body;
@@ -14,11 +15,11 @@ const sendWelcomeEmail = asyncHandler(async (req, res) => {
     try {
         await sendMail({
             to: email,
-            subject: 'Bienvenue sur Horizons !',
+            subject: 'Bienvenue sur Sevenopportunity !',
             html: `
                 <div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px;">
                     <div style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-                        <h2 style="color: #2a2a2a;">Bienvenue sur Horizons !</h2>
+                        <h2 style="color: #2a2a2a;">Bienvenue sur Sevenopportunity !</h2>
                         <p style="font-size: 16px; color: #444;">Bonjour ${fullname},</p>
                         <p style="font-size: 15px; color: #444;">Votre compte a été créé avec succès. Voici les détails de votre compte :</p>
                         <div style="background-color: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0;">
@@ -29,7 +30,7 @@ const sendWelcomeEmail = asyncHandler(async (req, res) => {
                         <p style="font-size: 14px; color: #666;">Si vous avez des questions, veuillez contacter votre administrateur système.</p>
                         <hr style="margin-top: 30px; border: none; border-top: 1px solid #eee;">
                         <p style="font-size: 13px; color: #999;">
-                            Cordialement,<br>L'équipe Horizons
+                            Cordialement,<br>L'équipe Sevenopportunity
                         </p>
                     </div>
                 </div>
@@ -89,14 +90,13 @@ const sendDocumentNotification = asyncHandler(async (req, res) => {
                         <p style="font-size: 15px; color: #444;">Vous pouvez maintenant consulter et gérer votre document dans le système.</p>
                         <hr style="margin-top: 30px; border: none; border-top: 1px solid #eee;">
                         <p style="font-size: 13px; color: #999;">
-                            Cordialement,<br>L'équipe Horizons
+                            Cordialement,<br>L'équipe Sevenopportunity
                         </p>
                     </div>
                 </div>
             `
         });
         
-        // Log the automation
         await supabase
             .from('automation_logs')
             .insert({
@@ -151,7 +151,7 @@ const sendReminderEmail = asyncHandler(async (req, res) => {
             message = 'Veuillez réviser et mettre à jour les informations de votre compte pour vous assurer qu\'elles sont à jour.';
             break;
         default:
-            subject = 'Rappel de Horizons';
+            subject = 'Rappel de Sevenopportunity';
             message = 'Ceci est un rappel amical de votre système.';
     }
     
@@ -166,10 +166,10 @@ const sendReminderEmail = asyncHandler(async (req, res) => {
                         <p style="font-size: 16px; color: #444;">Bonjour ${fullname},</p>
                         <p style="font-size: 15px; color: #444;">${message}</p>
                         ${dueDate ? `<p style="font-size: 14px; color: #666;"><strong>Date d'échéance :</strong> ${dueDate}</p>` : ''}
-                        <p style="font-size: 14px; color: #666;">Merci d'utiliser Horizons !</p>
+                        <p style="font-size: 14px; color: #666;">Merci d'utiliser Sevenopportunity !</p>
                         <hr style="margin-top: 30px; border: none; border-top: 1px solid #eee;">
                         <p style="font-size: 13px; color: #999;">
-                            Cordialement,<br>L'équipe Horizons
+                            Cordialement,<br>L'équipe Sevenopportunity
                         </p>
                     </div>
                 </div>
@@ -229,3 +229,159 @@ export {
     sendReminderEmail,
     getAutomationLogs
 };
+
+// New: Send CRA month-end reminders to consultants with pending CRAs
+export const sendCRAMonthEndReminders = asyncHandler(async (req, res) => {
+    // Flexible payload:
+    // - rows: [{ user_id, month }]
+    // - OR month + userIds
+    const onlyStatuses = Array.isArray(req.body?.onlyStatuses) && req.body.onlyStatuses.length > 0
+        ? req.body.onlyStatuses
+        : ['Brouillon', 'À réviser'];
+
+    const rows = Array.isArray(req.body?.rows) ? req.body.rows : null;
+    const queryMonth = req.query?.month;
+    const bodyMonth = req.body?.month;
+    const fallbackMonth = queryMonth || bodyMonth || formatISO(startOfMonth(new Date()), { representation: 'date' });
+    const selectedUserIds = Array.isArray(req.body?.userIds) ? req.body.userIds : null;
+
+    let totalTargets = 0;
+    let successCount = 0;
+
+    if (rows && rows.length > 0) {
+        // Process distinct (user_id, month) pairs
+        for (const { user_id, month } of rows) {
+            if (!user_id || !month) continue;
+            const { data: cras, error } = await supabase
+                .from('cras')
+                .select(`id, month, status, user_id, profiles:profiles!cras_user_id_fkey ( id, name, email )`)
+                .eq('month', month)
+                .eq('user_id', user_id)
+                .in('status', onlyStatuses);
+            if (error) continue;
+            totalTargets += (cras?.length || 0);
+            for (const cra of (cras || [])) {
+                const email = cra?.profiles?.email;
+                const name = cra?.profiles?.name || '';
+                if (!email) continue;
+                try {
+                    await sendMail({
+                        to: email,
+                        subject: `Rappel: complétez votre CRA (${cra.month})`,
+                        html: `<div>Bonjour ${name},<br/><br/>Votre CRA pour <b>${cra.month}</b> est actuellement <b>${cra.status}</b>.<br/>Merci de le compléter et le soumettre avant la fin du mois.<br/><br/>Cordialement,<br/>L'équipe Sevenopportunity</div>`
+                    });
+                    successCount += 1;
+                } catch (_) {}
+            }
+        }
+    } else {
+        // Legacy mode: single month + optional userIds
+        let query = supabase
+            .from('cras')
+            .select(`id, month, status, user_id, profiles:profiles!cras_user_id_fkey ( id, name, email )`)
+            .eq('month', fallbackMonth)
+            .in('status', onlyStatuses);
+
+        if (selectedUserIds && selectedUserIds.length > 0) {
+            query = query.in('user_id', selectedUserIds);
+        }
+
+        const { data: cras, error } = await query;
+        if (error) {
+            throw new ApiError(500, "Échec de la récupération des CRA pour rappel");
+        }
+        totalTargets = cras?.length || 0;
+        for (const cra of (cras || [])) {
+            const email = cra?.profiles?.email;
+            const name = cra?.profiles?.name || '';
+            if (!email) continue;
+            try {
+                await sendMail({
+                    to: email,
+                    subject: `Rappel: complétez votre CRA (${cra.month})`,
+                    html: `<div>Bonjour ${name},<br/><br/>Votre CRA pour <b>${cra.month}</b> est actuellement <b>${cra.status}</b>.<br/>Merci de le compléter et le soumettre avant la fin du mois.<br/><br/>Cordialement,<br/>L'équipe Sevenopportunity</div>`
+                });
+                successCount += 1;
+            } catch (_) {}
+        }
+    }
+
+    return res.status(200).json(new ApiResponse(200, { total: totalTargets, sent: successCount }, 'Rappels CRA envoyés'));
+});
+
+// Send CRA document reminders for selected rows (create/complete/sign pending)
+export const sendCRADocumentReminders = asyncHandler(async (req, res) => {
+    // rows: [{ user_id, month }]
+    const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+    if (rows.length === 0) {
+        throw new ApiError(400, "Aucune ligne sélectionnée");
+    }
+
+    let totalTargets = rows.length;
+    let sent = 0;
+
+    for (const { user_id, month } of rows) {
+        if (!user_id || !month) continue;
+
+        // Try to load CRA
+        const { data: cra, error: craErr } = await supabase
+            .from('cras')
+            .select('id, status, month, user_id')
+            .eq('user_id', user_id)
+            .eq('month', month)
+            .single();
+
+        // Load profile for email/name
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('id, name, email')
+            .eq('id', user_id)
+            .single();
+
+        const email = profile?.email;
+        if (!email) continue;
+
+        let shouldSend = false;
+        let subject = `Rappel: votre CRA (${month}) nécessite une action`;
+        let message = `Bonjour ${profile?.name || ''},<br/><br/>`;
+
+        if (!cra || craErr) {
+            // Non créé
+            shouldSend = true;
+            message += `Aucun CRA n'a été créé pour <b>${month}</b>.<br/>Veuillez créer et compléter votre CRA.`;
+        } else {
+            if (cra.status !== 'Signé') {
+                shouldSend = true;
+                switch (cra.status) {
+                    case 'Brouillon':
+                        message += `Votre CRA pour <b>${month}</b> est en <b>Brouillon</b>. Merci de le compléter et le soumettre.`;
+                        break;
+                    case 'À réviser':
+                        message += `Votre CRA pour <b>${month}</b> est marqué <b>À réviser</b>. Merci de corriger et de le soumettre à nouveau.`;
+                        break;
+                    case 'Soumis':
+                        message += `Votre CRA pour <b>${month}</b> est <b>Soumis</b>. Merci d'attendre la validation ou de vérifier s'il y a des retours.`;
+                        break;
+                    case 'Validé':
+                        message += `Votre CRA pour <b>${month}</b> est <b>Validé</b>. Vous serez notifié si une signature est demandée.`;
+                        break;
+                    case 'Signature demandée':
+                        message += `Votre CRA pour <b>${month}</b> est en <b>Signature demandée</b>. Merci de le signer.`;
+                        break;
+                    default:
+                        message += `Votre CRA pour <b>${month}</b> nécessite votre attention (statut: ${cra.status}).`;
+                }
+            }
+        }
+
+        if (shouldSend) {
+            message += `<br/><br/>Cordialement,<br/>L'équipe Sevenopportunity`;
+            try {
+                await sendMail({ to: email, subject, html: `<div>${message}</div>` });
+                sent += 1;
+            } catch (_) {}
+        }
+    }
+
+    return res.status(200).json(new ApiResponse(200, { total: totalTargets, sent }, 'Rappels CRA documents envoyés'));
+});

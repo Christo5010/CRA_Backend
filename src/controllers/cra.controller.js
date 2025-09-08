@@ -2,6 +2,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { supabase } from "../utils/supabaseClient.js";
+import { sendMail } from "../utils/sendMail.js";
 
 // Create a new CRA
 const createCRA = asyncHandler(async (req, res) => {
@@ -152,7 +153,7 @@ const getCRAById = asyncHandler(async (req, res) => {
 // Update CRA
 const updateCRA = asyncHandler(async (req, res) => {
     const { cra_id } = req.params;
-    const { status, days, signature_dataurl,signature_text,comment } = req.body;
+    const { status, days, signature_dataurl,signature_text,comment, revision_reason } = req.body;
     const currentUser = req.user;
 
     const { data: existingCRA } = await supabase
@@ -178,6 +179,7 @@ const updateCRA = asyncHandler(async (req, res) => {
     if (days !== undefined) updateData.days = days;
     if (signature_text !== undefined) updateData.signature_text = signature_text;
     if (comment !== undefined) updateData.comment = comment;
+    if (revision_reason !== undefined) updateData.revision_reason = revision_reason;
 
     if (signature_dataurl) {
         try {
@@ -207,6 +209,7 @@ const updateCRA = asyncHandler(async (req, res) => {
         }
     }
 
+    const previousStatus = existingCRA.status;
     const { data: cra, error } = await supabase
         .from('cras')
         .update(updateData)
@@ -217,6 +220,37 @@ const updateCRA = asyncHandler(async (req, res) => {
     if (error) {
         throw new ApiError(500, 'Échec de la mise à jour du CRA');
     }
+
+    // // If status changed, notify consultant by email
+    // try {
+    //     if (status !== undefined && status !== previousStatus && cra?.user_id) {
+    //         const { data: profile } = await supabase
+    //             .from('profiles')
+    //             .select('id, name, email')
+    //             .eq('id', cra.user_id)
+    //             .single();
+
+    //         if (profile?.email) {
+    //             let subject = `Mise à jour du statut de votre CRA`;
+    //             let body = `Bonjour ${profile.name || ''},<br/><br/>` +
+    //                 `Le statut de votre CRA (${cra.month}) a été mis à jour à <b>${status}</b>.`;
+
+    //             if (status === 'À réviser' && (revision_reason || cra.revision_reason)) {
+    //                 body += `<br/><br/><b>Motif de la révision :</b><br/>${revision_reason || cra.revision_reason}`;
+    //             }
+
+    //             if (status === 'Signature demandée') {
+    //                 body += `<br/><br/>Veuillez vous connecter pour signer votre CRA.`;
+    //             }
+
+    //             body += `<br/><br/>Cordialement,<br/>L'équipe Sevenopportunity`;
+
+    //             try { await sendMail({ to: profile.email, subject, html: `<div>${body}</div>` }); } catch (e) { /* ignore email failure */ }
+    //         }
+    //     }
+    // } catch (notifyErr) {
+    //     // Non-blocking: ignore email errors
+    // }
 
     return res.status(200).json(
         new ApiResponse(200, cra, "CRA updated successfully")

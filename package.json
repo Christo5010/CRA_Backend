@@ -1,7 +1,7 @@
 {
-  "name": "horizons-backend",
+  "name": "Sevenopportunity-backend",
   "version": "1.0.0",
-  "description": "Backend for Horizons application",
+  "description": "Backend for Sevenopportunity application",
   "main": "src/app.js",
   "type": "module",
   "scripts": {
@@ -9,7 +9,11 @@
     "dev": "nodemon src/app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["horizons", "backend", "api"],
+  "keywords": [
+    "Sevenopportunity",
+    "backend",
+    "api"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -17,6 +21,7 @@
     "bcrypt": "^5.1.1",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
+    "date-fns": "^4.1.0",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",

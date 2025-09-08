@@ -362,7 +362,7 @@ const createUser = asyncHandler(async (req, res) => {
 			}
 		}
 
-		// Always generate a fresh Horizons invite token (valid 48h)
+		// Always generate a fresh Sevenopportunity invite token (valid 48h)
 		const token = crypto.randomUUID();
 		
 		// Ensure Redis is connected before storing the token
@@ -372,11 +372,11 @@ const createUser = asyncHandler(async (req, res) => {
 		try {
 			await sendMail({
 				to: email,
-				subject: 'Définissez le mot de passe de votre compte Horizons',
+				subject: 'Définissez le mot de passe de votre compte Sevenopportunity',
 				html: `
 					<div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px;">
 						<div style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-							<h2 style="color: #2a2a2a;">Bienvenue sur Horizons</h2>
+							<h2 style="color: #2a2a2a;">Bienvenue sur Sevenopportunity</h2>
 							<p style="font-size: 16px; color: #444;">Bonjour ${name},</p>
 							<p style="font-size: 15px; color: #444;">Cliquez sur le lien ci-dessous pour définir votre mot de passe et commencer.</p>
 							<p><a href="${process.env.FRONTEND_URL || ''}/new-password?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}" style="color:#2b6cb0">Créer votre mot de passe</a></p>
