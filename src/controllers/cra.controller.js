@@ -222,35 +222,35 @@ const updateCRA = asyncHandler(async (req, res) => {
     }
 
     // // If status changed, notify consultant by email
-    // try {
-    //     if (status !== undefined && status !== previousStatus && cra?.user_id) {
-    //         const { data: profile } = await supabase
-    //             .from('profiles')
-    //             .select('id, name, email')
-    //             .eq('id', cra.user_id)
-    //             .single();
+    try {
+        if (status !== undefined && status !== previousStatus && cra?.user_id) {
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('id, name, email')
+                .eq('id', cra.user_id)
+                .single();
 
-    //         if (profile?.email) {
-    //             let subject = `Mise à jour du statut de votre CRA`;
-    //             let body = `Bonjour ${profile.name || ''},<br/><br/>` +
-    //                 `Le statut de votre CRA (${cra.month}) a été mis à jour à <b>${status}</b>.`;
+            if (profile?.email) {
+                let subject = `Mise à jour du statut de votre CRA`;
+                let body = `Bonjour ${profile.name || ''},<br/><br/>` +
+                    `Le statut de votre CRA (${cra.month}) a été mis à jour à <b>${status}</b>.`;
 
-    //             if (status === 'À réviser' && (revision_reason || cra.revision_reason)) {
-    //                 body += `<br/><br/><b>Motif de la révision :</b><br/>${revision_reason || cra.revision_reason}`;
-    //             }
+                if (status === 'À réviser' && (revision_reason || cra.revision_reason)) {
+                    body += `<br/><br/><b>Motif de la révision :</b><br/>${revision_reason || cra.revision_reason}`;
+                }
 
-    //             if (status === 'Signature demandée') {
-    //                 body += `<br/><br/>Veuillez vous connecter pour signer votre CRA.`;
-    //             }
+                if (status === 'Signature demandée') {
+                    body += `<br/><br/>Veuillez vous connecter pour signer votre CRA.`;
+                }
 
-    //             body += `<br/><br/>Cordialement,<br/>L'équipe Sevenopportunity`;
+                body += `<br/><br/>Cordialement,<br/>L'équipe Sevenopportunity`;
 
-    //             try { await sendMail({ to: profile.email, subject, html: `<div>${body}</div>` }); } catch (e) { /* ignore email failure */ }
-    //         }
-    //     }
-    // } catch (notifyErr) {
-    //     // Non-blocking: ignore email errors
-    // }
+                try { await sendMail({ to: profile.email, subject, html: `<div>${body}</div>` }); } catch (e) { /* ignore email failure */ }
+            }
+        }
+    } catch (notifyErr) {
+        // Non-blocking: ignore email errors
+    }
 
     return res.status(200).json(
         new ApiResponse(200, cra, "CRA updated successfully")
