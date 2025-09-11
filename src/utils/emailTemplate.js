@@ -10,7 +10,7 @@ const DEFAULT_BRAND = {
 };
 
 export function wrapEmail({ title = 'SevenOpportunity', contentHtml = '', logoUrl }) {
-	const safeLogo = url || logoUrl || `${process.env.FRONTEND_URL || ''}/seven.png`;
+	const safeLogo = logoUrl || `${process.env.FRONTEND_URL || ''}/seven.png`;
 	return `<!DOCTYPE html>
 <html lang="fr">
   <head>
