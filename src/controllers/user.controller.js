@@ -5,6 +5,7 @@ import { supabase } from "../utils/supabaseClient.js";
 import { sendMail } from "../utils/sendMail.js";
 import { redisClient, ensureConnection } from "../utils/redisClient.js";
 import crypto from 'crypto';
+import { wrapEmail } from "../utils/emailTemplate.js";
 
 
 const loginUser = asyncHandler(async(req,res)=>{
@@ -193,8 +194,11 @@ const requestEmailChange = asyncHandler(async (req, res) => {
         await sendMail({
             to: newEmail,
             subject: 'Vérification de votre nouvel email',
-            text: `Votre code de vérification: ${code}`,
-            html: `<p>Votre code de vérification est <b>${code}</b>. Il expire dans 15 minutes.</p>`
+            html: wrapEmail({
+                title: 'Vérification de votre nouvel email',
+                contentHtml: `<p style="font-size:15px">Bonjour,</p>
+                  <p style="font-size:15px">Votre code de vérification est <span class="highlight"><b>${code}</b></span>. Il expire dans 15 minutes.</p>`
+            })
         });
     } catch (e) {
         // Clean stored code if email send fails
@@ -373,17 +377,15 @@ const createUser = asyncHandler(async (req, res) => {
 			await sendMail({
 				to: email,
 				subject: 'Définissez le mot de passe de votre compte Sevenopportunity',
-				html: `
-					<div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px;">
-						<div style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-							<h2 style="color: #2a2a2a;">Bienvenue sur Sevenopportunity</h2>
-							<p style="font-size: 16px; color: #444;">Bonjour ${name},</p>
-							<p style="font-size: 15px; color: #444;">Cliquez sur le lien ci-dessous pour définir votre mot de passe et commencer.</p>
-							<p><a href="${process.env.FRONTEND_URL || ''}/new-password?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}" style="color:#2b6cb0">Créer votre mot de passe</a></p>
-							<p style="font-size: 12px; color: #666;">Ce lien expire dans 48 heures.</p>
-						</div>
-					</div>
-				`,
+				html: wrapEmail({
+					title: 'Bienvenue sur Sevenopportunity',
+					contentHtml: `
+					  <p style="font-size:15px">Bonjour <strong>${name}</strong>,</p>
+					  <p style="font-size:15px">Cliquez sur le bouton ci-dessous pour définir votre mot de passe et commencer.</p>
+					  <p><a class="btn" href="${process.env.FRONTEND_URL || ''}/new-password?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}" target="_blank" rel="noopener">Créer votre mot de passe</a></p>
+					  <p class="small-note">Ce lien expire dans 48 heures.</p>
+					`
+				})
 			});
 		} catch (emailError) {
 			// ignore email failure
@@ -430,18 +432,16 @@ const forgotPassword = asyncHandler(async (req, res) => {
 		await sendMail({
 			to: email,
 			subject: 'Votre code de réinitialisation de mot de passe',
-			html: `
-				<div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px;">
-					<div style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-						<h2 style="color: #2a2a2a;">Réinitialisez votre mot de passe</h2>
-						<p style="font-size: 15px; color: #444;">Utilisez ce code pour réinitialiser votre mot de passe :</p>
-						<div style="background: #f0f3ff; border: 1px solid #dfe3f6; color: #273e8a; font-size: 24px; font-weight: 700; padding: 14px 18px; letter-spacing: 6px; text-align: center; border-radius: 6px;">${code}</div>
-						<p style="font-size: 14px; color: #666;">Le code expire dans 15 minutes.</p>
-						<p style="font-size: 15px; color: #444;">Ouvrez le lien et saisissez le code pour définir un nouveau mot de passe :</p>
-						<p><a href="${process.env.FRONTEND_URL || ''}/reset-password?email=${encodeURIComponent(email)}" style="color:#2b6cb0">Ouvrir la page de réinitialisation</a></p>
-					</div>
-				</div>
-			`
+			html: wrapEmail({
+				title: 'Réinitialisez votre mot de passe',
+				contentHtml: `
+				  <p style=\"font-size:15px\">Utilisez ce code pour réinitialiser votre mot de passe :</p>
+				  <div style=\"background: #f0f3ff; border: 1px solid #dfe3f6; color: #273e8a; font-size: 24px; font-weight: 700; padding: 14px 18px; letter-spacing: 6px; text-align: center; border-radius: 6px;\">${code}</div>
+				  <p class=\"small-note\">Le code expire dans 15 minutes.</p>
+				  <p style=\"font-size:15px\">Ouvrez le lien et saisissez le code pour définir un nouveau mot de passe :</p>
+				  <p><a class=\"btn\" href=\"${process.env.FRONTEND_URL || ''}/reset-password?email=${encodeURIComponent(email)}\" target=\"_blank\" rel=\"noopener\">Ouvrir la page de réinitialisation</a></p>
+				`
+			})
 		});
 	} catch (emailError) {
 		// don't throw — prevent leaking info

@@ -232,20 +232,25 @@ const updateCRA = asyncHandler(async (req, res) => {
 
             if (profile?.email) {
                 let subject = `Mise à jour du statut de votre CRA`;
-                let body = `Bonjour ${profile.name || ''},<br/><br/>` +
-                    `Le statut de votre CRA (${cra.month}) a été mis à jour à <b>${status}</b>.`;
+                let middle = `Le statut de votre CRA (${cra.month}) a été mis à jour à <b>${status}</b>.`;
 
                 if (status === 'À réviser' && (revision_reason || cra.revision_reason)) {
-                    body += `<br/><br/><b>Motif de la révision :</b><br/>${revision_reason || cra.revision_reason}`;
+                    middle += `<br/><br/><b>Motif de la révision :</b><br/>${revision_reason || cra.revision_reason}`;
                 }
 
                 if (status === 'Signature demandée') {
-                    body += `<br/><br/>Veuillez vous connecter pour signer votre CRA.`;
+                    middle += `<br/><br/>Veuillez vous connecter pour signer votre CRA.`;
                 }
 
-                body += `<br/><br/>Cordialement,<br/>L'équipe Sevenopportunity`;
-
-                try { await sendMail({ to: profile.email, subject, html: `<div>${body}</div>` }); } catch (e) { /* ignore email failure */ }
+                const { wrapEmail } = await import('../utils/emailTemplate.js');
+                const html = wrapEmail({
+                    title: subject,
+                    contentHtml: `
+                      <p style=\"font-size:15px\">Bonjour <strong>${profile.name || ''}</strong>,</p>
+                      <p style=\"font-size:15px\">${middle}</p>
+                    `
+                });
+                try { await sendMail({ to: profile.email, subject, html }); } catch (e) { /* ignore email failure */ }
             }
         }
     } catch (notifyErr) {

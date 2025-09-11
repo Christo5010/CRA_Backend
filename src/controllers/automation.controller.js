@@ -4,6 +4,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { supabase } from "../utils/supabaseClient.js";
 import { sendMail } from "../utils/sendMail.js";
 import { formatISO, startOfMonth } from "date-fns";
+import { wrapEmail } from "../utils/emailTemplate.js";
 
 const sendWelcomeEmail = asyncHandler(async (req, res) => {
     const { userId, email, fullname } = req.body;
@@ -16,25 +17,18 @@ const sendWelcomeEmail = asyncHandler(async (req, res) => {
         await sendMail({
             to: email,
             subject: 'Bienvenue sur Sevenopportunity !',
-            html: `
-                <div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px;">
-                    <div style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-                        <h2 style="color: #2a2a2a;">Bienvenue sur Sevenopportunity !</h2>
-                        <p style="font-size: 16px; color: #444;">Bonjour ${fullname},</p>
-                        <p style="font-size: 15px; color: #444;">Votre compte a été créé avec succès. Voici les détails de votre compte :</p>
-                        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0;">
-                            <p style="margin: 5px 0;"><strong>Email :</strong> ${email}</p>
-                            <p style="margin: 5px 0;"><strong>Nom d'utilisateur :</strong> ${fullname.toLowerCase().replace(/\s+/g, '')}</p>
-                        </div>
-                        <p style="font-size: 15px; color: #444;">Vous pouvez maintenant vous connecter à votre compte et commencer à utiliser notre système.</p>
-                        <p style="font-size: 14px; color: #666;">Si vous avez des questions, veuillez contacter votre administrateur système.</p>
-                        <hr style="margin-top: 30px; border: none; border-top: 1px solid #eee;">
-                        <p style="font-size: 13px; color: #999;">
-                            Cordialement,<br>L'équipe Sevenopportunity
-                        </p>
-                    </div>
-                </div>
-            `
+            html: wrapEmail({
+                title: 'Bienvenue sur Sevenopportunity',
+                contentHtml: `
+                  <p style=\"font-size:15px\">Bonjour <strong>${fullname}</strong>,</p>
+                  <p style=\"font-size:15px\">Votre compte a été créé avec succès. Voici les détails de votre compte :</p>
+                  <div style=\"background-color:#f8f9fa;padding:20px;border-radius:6px;margin:20px 0;\">
+                    <p style=\"margin:5px 0;\"><strong>Email :</strong> ${email}</p>
+                    <p style=\"margin:5px 0;\"><strong>Nom d'utilisateur :</strong> ${fullname.toLowerCase().replace(/\s+/g, '')}</p>
+                  </div>
+                  <p class=\"small-note\">Si vous avez des questions, veuillez contacter votre administrateur système.</p>
+                `
+            })
         });
         
         // Log the automation
@@ -77,24 +71,18 @@ const sendDocumentNotification = asyncHandler(async (req, res) => {
         await sendMail({
             to: email,
             subject: 'Document uploadé avec succès',
-            html: `
-                <div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px;">
-                    <div style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-                        <h2 style="color: #2a2a2a;">Confirmation d'upload de document</h2>
-                        <p style="font-size: 16px; color: #444;">Bonjour ${fullname},</p>
-                        <p style="font-size: 15px; color: #444;">Votre document a été uploadé avec succès :</p>
-                        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0;">
-                            <p style="margin: 5px 0;"><strong>Document :</strong> ${documentTitle}</p>
-                            <p style="margin: 5px 0;"><strong>Uploadé le :</strong> ${new Date().toLocaleDateString()}</p>
-                        </div>
-                        <p style="font-size: 15px; color: #444;">Vous pouvez maintenant consulter et gérer votre document dans le système.</p>
-                        <hr style="margin-top: 30px; border: none; border-top: 1px solid #eee;">
-                        <p style="font-size: 13px; color: #999;">
-                            Cordialement,<br>L'équipe Sevenopportunity
-                        </p>
-                    </div>
-                </div>
-            `
+            html: wrapEmail({
+                title: "Confirmation d'upload de document",
+                contentHtml: `
+                  <p style=\"font-size:15px\">Bonjour <strong>${fullname}</strong>,</p>
+                  <p style=\"font-size:15px\">Votre document a été uploadé avec succès :</p>
+                  <div style=\"background-color:#f8f9fa;padding:20px;border-radius:6px;margin:20px 0;\">
+                    <p style=\"margin:5px 0;\"><strong>Document :</strong> ${documentTitle}</p>
+                    <p style=\"margin:5px 0;\"><strong>Uploadé le :</strong> ${new Date().toLocaleDateString()}</p>
+                  </div>
+                  <p class=\"small-note\">Vous pouvez maintenant consulter et gérer votre document dans le système.</p>
+                `
+            })
         });
         
         await supabase
@@ -135,45 +123,39 @@ const sendReminderEmail = asyncHandler(async (req, res) => {
     }
     
     let subject = '';
-    let message = '';
+    let body = '';
     
     switch (reminderType) {
         case 'password_change':
             subject = 'Rappel de changement de mot de passe';
-            message = 'Cela fait un moment que vous n\'avez pas changé votre mot de passe. Veuillez considérer le mettre à jour pour la sécurité.';
+            body = `Cela fait un moment que vous n'avez pas changé votre mot de passe. Veuillez considérer le mettre à jour pour la sécurité.`;
             break;
         case 'document_review':
             subject = 'Rappel de révision de document';
-            message = 'Vous avez des documents qui peuvent nécessiter une révision. Veuillez vérifier votre tableau de bord de documents.';
+            body = `Vous avez des documents qui peuvent nécessiter une révision. Veuillez vérifier votre tableau de bord de documents.`;
             break;
         case 'account_update':
             subject = 'Rappel de mise à jour de compte';
-            message = 'Veuillez réviser et mettre à jour les informations de votre compte pour vous assurer qu\'elles sont à jour.';
+            body = `Veuillez réviser et mettre à jour les informations de votre compte pour vous assurer qu'elles sont à jour.`;
             break;
         default:
             subject = 'Rappel de Sevenopportunity';
-            message = 'Ceci est un rappel amical de votre système.';
+            body = `Ceci est un rappel amical de votre système.`;
     }
     
     try {
         await sendMail({
             to: email,
-            subject: subject,
-            html: `
-                <div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px;">
-                    <div style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-                        <h2 style="color: #2a2a2a;">${subject}</h2>
-                        <p style="font-size: 16px; color: #444;">Bonjour ${fullname},</p>
-                        <p style="font-size: 15px; color: #444;">${message}</p>
-                        ${dueDate ? `<p style="font-size: 14px; color: #666;"><strong>Date d'échéance :</strong> ${dueDate}</p>` : ''}
-                        <p style="font-size: 14px; color: #666;">Merci d'utiliser Sevenopportunity !</p>
-                        <hr style="margin-top: 30px; border: none; border-top: 1px solid #eee;">
-                        <p style="font-size: 13px; color: #999;">
-                            Cordialement,<br>L'équipe Sevenopportunity
-                        </p>
-                    </div>
-                </div>
-            `
+            subject,
+            html: wrapEmail({
+                title: subject,
+                contentHtml: `
+                  <p style=\"font-size:15px\">Bonjour <strong>${fullname}</strong>,</p>
+                  <p style=\"font-size:15px\">${body}</p>
+                  ${dueDate ? `<p style=\"font-size:14px;color:#666\"><strong>Date d'échéance :</strong> ${dueDate}</p>` : ''}
+                  <p class=\"small-note\">Merci d'utiliser Sevenopportunity !</p>
+                `
+            })
         });
         
         // Log the automation
@@ -232,9 +214,6 @@ export {
 
 // New: Send CRA month-end reminders to consultants with pending CRAs
 export const sendCRAMonthEndReminders = asyncHandler(async (req, res) => {
-    // Flexible payload:
-    // - rows: [{ user_id, month }]
-    // - OR month + userIds
     const onlyStatuses = Array.isArray(req.body?.onlyStatuses) && req.body.onlyStatuses.length > 0
         ? req.body.onlyStatuses
         : ['Brouillon', 'À réviser'];
@@ -248,8 +227,22 @@ export const sendCRAMonthEndReminders = asyncHandler(async (req, res) => {
     let totalTargets = 0;
     let successCount = 0;
 
+    const sendReminder = async (email, name, craMonth, status) => {
+        await sendMail({
+            to: email,
+            subject: `Rappel: complétez votre CRA (${craMonth})`,
+            html: wrapEmail({
+                title: `Rappel CRA (${craMonth})`,
+                contentHtml: `
+                  <p style=\"font-size:15px\">Bonjour <strong>${name || ''}</strong>,</p>
+                  <p style=\"font-size:15px\">Votre CRA pour <b>${craMonth}</b> est actuellement <b>${status}</b>.</p>
+                  <p class=\"small-note\">Merci de le compléter et le soumettre avant la fin du mois.</p>
+                `
+            })
+        });
+    };
+
     if (rows && rows.length > 0) {
-        // Process distinct (user_id, month) pairs
         for (const { user_id, month } of rows) {
             if (!user_id || !month) continue;
             const { data: cras, error } = await supabase
@@ -264,18 +257,10 @@ export const sendCRAMonthEndReminders = asyncHandler(async (req, res) => {
                 const email = cra?.profiles?.email;
                 const name = cra?.profiles?.name || '';
                 if (!email) continue;
-                try {
-                    await sendMail({
-                        to: email,
-                        subject: `Rappel: complétez votre CRA (${cra.month})`,
-                        html: `<div>Bonjour ${name},<br/><br/>Votre CRA pour <b>${cra.month}</b> est actuellement <b>${cra.status}</b>.<br/>Merci de le compléter et le soumettre avant la fin du mois.<br/><br/>Cordialement,<br/>L'équipe Sevenopportunity</div>`
-                    });
-                    successCount += 1;
-                } catch (_) {}
+                try { await sendReminder(email, name, cra.month, cra.status); successCount += 1; } catch (_) {}
             }
         }
     } else {
-        // Legacy mode: single month + optional userIds
         let query = supabase
             .from('cras')
             .select(`id, month, status, user_id, profiles:profiles!cras_user_id_fkey ( id, name, email )`)
@@ -295,14 +280,7 @@ export const sendCRAMonthEndReminders = asyncHandler(async (req, res) => {
             const email = cra?.profiles?.email;
             const name = cra?.profiles?.name || '';
             if (!email) continue;
-            try {
-                await sendMail({
-                    to: email,
-                    subject: `Rappel: complétez votre CRA (${cra.month})`,
-                    html: `<div>Bonjour ${name},<br/><br/>Votre CRA pour <b>${cra.month}</b> est actuellement <b>${cra.status}</b>.<br/>Merci de le compléter et le soumettre avant la fin du mois.<br/><br/>Cordialement,<br/>L'équipe Sevenopportunity</div>`
-                });
-                successCount += 1;
-            } catch (_) {}
+            try { await sendReminder(email, name, cra.month, cra.status); successCount += 1; } catch (_) {}
         }
     }
 
@@ -311,7 +289,6 @@ export const sendCRAMonthEndReminders = asyncHandler(async (req, res) => {
 
 // Send CRA document reminders for selected rows (create/complete/sign pending)
 export const sendCRADocumentReminders = asyncHandler(async (req, res) => {
-    // rows: [{ user_id, month }]
     const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
     if (rows.length === 0) {
         throw new ApiError(400, "Aucune ligne sélectionnée");
@@ -323,7 +300,6 @@ export const sendCRADocumentReminders = asyncHandler(async (req, res) => {
     for (const { user_id, month } of rows) {
         if (!user_id || !month) continue;
 
-        // Try to load CRA
         const { data: cra, error: craErr } = await supabase
             .from('cras')
             .select('id, status, month, user_id')
@@ -331,7 +307,6 @@ export const sendCRADocumentReminders = asyncHandler(async (req, res) => {
             .eq('month', month)
             .single();
 
-        // Load profile for email/name
         const { data: profile } = await supabase
             .from('profiles')
             .select('id, name, email')
@@ -343,43 +318,43 @@ export const sendCRADocumentReminders = asyncHandler(async (req, res) => {
 
         let shouldSend = false;
         let subject = `Rappel: votre CRA (${month}) nécessite une action`;
-        let message = `Bonjour ${profile?.name || ''},<br/><br/>`;
+        let middle = '';
 
         if (!cra || craErr) {
-            // Non créé
             shouldSend = true;
-            message += `Aucun CRA n'a été créé pour <b>${month}</b>.<br/>Veuillez créer et compléter votre CRA.`;
-        } else {
-            if (cra.status !== 'Signé') {
-                shouldSend = true;
-                switch (cra.status) {
-                    case 'Brouillon':
-                        message += `Votre CRA pour <b>${month}</b> est en <b>Brouillon</b>. Merci de le compléter et le soumettre.`;
-                        break;
-                    case 'À réviser':
-                        message += `Votre CRA pour <b>${month}</b> est marqué <b>À réviser</b>. Merci de corriger et de le soumettre à nouveau.`;
-                        break;
-                    case 'Soumis':
-                        message += `Votre CRA pour <b>${month}</b> est <b>Soumis</b>. Merci d'attendre la validation ou de vérifier s'il y a des retours.`;
-                        break;
-                    case 'Validé':
-                        message += `Votre CRA pour <b>${month}</b> est <b>Validé</b>. Vous serez notifié si une signature est demandée.`;
-                        break;
-                    case 'Signature demandée':
-                        message += `Votre CRA pour <b>${month}</b> est en <b>Signature demandée</b>. Merci de le signer.`;
-                        break;
-                    default:
-                        message += `Votre CRA pour <b>${month}</b> nécessite votre attention (statut: ${cra.status}).`;
-                }
+            middle = `Aucun CRA n'a été créé pour <b>${month}</b>.<br/>Veuillez créer et compléter votre CRA.`;
+        } else if (cra.status !== 'Signé') {
+            shouldSend = true;
+            switch (cra.status) {
+                case 'Brouillon':
+                    middle = `Votre CRA pour <b>${month}</b> est en <b>Brouillon</b>. Merci de le compléter et le soumettre.`;
+                    break;
+                case 'À réviser':
+                    middle = `Votre CRA pour <b>${month}</b> est marqué <b>À réviser</b>. Merci de corriger et de le soumettre à nouveau.`;
+                    break;
+                case 'Soumis':
+                    middle = `Votre CRA pour <b>${month}</b> est <b>Soumis</b>. Merci d'attendre la validation ou de vérifier s'il y a des retours.`;
+                    break;
+                case 'Validé':
+                    middle = `Votre CRA pour <b>${month}</b> est <b>Validé</b>. Vous serez notifié si une signature est demandée.`;
+                    break;
+                case 'Signature demandée':
+                    middle = `Votre CRA pour <b>${month}</b> est en <b>Signature demandée</b>. Merci de le signer.`;
+                    break;
+                default:
+                    middle = `Votre CRA pour <b>${month}</b> nécessite votre attention (statut: ${cra.status}).`;
             }
         }
 
         if (shouldSend) {
-            message += `<br/><br/>Cordialement,<br/>L'équipe Sevenopportunity`;
-            try {
-                await sendMail({ to: email, subject, html: `<div>${message}</div>` });
-                sent += 1;
-            } catch (_) {}
+            const html = wrapEmail({
+                title: subject,
+                contentHtml: `
+                  <p style=\"font-size:15px\">Bonjour <strong>${profile?.name || ''}</strong>,</p>
+                  <p style=\"font-size:15px\">${middle}</p>
+                `
+            });
+            try { await sendMail({ to: email, subject, html }); sent += 1; } catch (_) {}
         }
     }
 
