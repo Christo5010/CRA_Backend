@@ -6,7 +6,7 @@ import { sendMail } from "../utils/sendMail.js";
 
 // Create a new CRA
 const createCRA = asyncHandler(async (req, res) => {
-    const { user_id, month, status, days } = req.body;
+    const { user_id, month, status, days, hide_header, hide_client_signature } = req.body;
     const userId = req.user.id;
 
     if (!user_id || !month || !status) {
@@ -35,6 +35,9 @@ const createCRA = asyncHandler(async (req, res) => {
         month,
         status,
         days: days || {},
+        // Optional visibility flags (columns must exist in DB)
+        ...(hide_header !== undefined ? { hide_header: !!hide_header } : {}),
+        ...(hide_client_signature !== undefined ? { hide_client_signature: !!hide_client_signature } : {}),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
     };
@@ -153,7 +156,7 @@ const getCRAById = asyncHandler(async (req, res) => {
 // Update CRA
 const updateCRA = asyncHandler(async (req, res) => {
     const { cra_id } = req.params;
-    const { status, days, signature_dataurl,signature_text,comment, revision_reason } = req.body;
+    const { status, days, signature_dataurl,signature_text,comment, revision_reason, hide_header, hide_client_signature } = req.body;
     const currentUser = req.user;
 
     const { data: existingCRA } = await supabase
@@ -180,6 +183,8 @@ const updateCRA = asyncHandler(async (req, res) => {
     if (signature_text !== undefined) updateData.signature_text = signature_text;
     if (comment !== undefined) updateData.comment = comment;
     if (revision_reason !== undefined) updateData.revision_reason = revision_reason;
+    if (hide_header !== undefined) updateData.hide_header = !!hide_header;
+    if (hide_client_signature !== undefined) updateData.hide_client_signature = !!hide_client_signature;
 
     if (signature_dataurl) {
         try {
