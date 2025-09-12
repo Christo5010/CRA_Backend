@@ -13,8 +13,8 @@ const createCRA = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Identifiant utilisateur, mois et statut requis");
     }
 
-    // Check if user is admin or creating their own CRA
-    if (req.user.role !== 'admin' && req.user.id !== user_id) {
+    // Check if user is admin, manager, or creating their own CRA
+    if (req.user.role !== 'admin' && req.user.role !== 'manager' && req.user.id !== user_id) {
         throw new ApiError(403, "Vous ne pouvez créer des CRA que pour vous-même");
     }
 
@@ -62,8 +62,8 @@ const getUserCRAs = asyncHandler(async (req, res) => {
     const { user_id } = req.params;
     const currentUser = req.user;
 
-    // Check if user is admin or requesting their own CRAs
-    if (currentUser.role !== 'admin' && currentUser.id !== user_id) {
+    // Check if user is admin, manager, or requesting their own CRAs
+    if (currentUser.role !== 'admin' && currentUser.role !== 'manager' && currentUser.id !== user_id) {
         throw new ApiError(403, "Vous ne pouvez consulter que vos propres CRA");
     }
 
@@ -74,6 +74,7 @@ const getUserCRAs = asyncHandler(async (req, res) => {
         .order('month', { ascending: false });
 
     if (error) {
+        console.log(error)
         throw new ApiError(500, 'Échec de la récupération des CRA');
     }
 
@@ -86,8 +87,8 @@ const getUserCRAs = asyncHandler(async (req, res) => {
 const getAllCRAs = asyncHandler(async (req, res) => {
     const currentUser = req.user;
 
-    if (currentUser.role !== 'admin') {
-        throw new ApiError(403, "Seuls les administrateurs peuvent voir tous les CRA");
+    if (currentUser.role !== 'admin' && currentUser.role !== 'manager') {
+        throw new ApiError(403, "Seuls les administrateurs et managers peuvent voir tous les CRA");
     }
 
     const { data: cras, error } = await supabase
@@ -143,8 +144,8 @@ const getCRAById = asyncHandler(async (req, res) => {
         throw new ApiError(404, 'CRA introuvable');
     }
 
-    // Check if user is admin or owns this CRA
-    if (currentUser.role !== 'admin' && currentUser.id !== cra.user_id) {
+    // Check if user is admin, manager, or owns this CRA
+    if (currentUser.role !== 'admin' && currentUser.role !== 'manager' && currentUser.id !== cra.user_id) {
         throw new ApiError(403, "Vous ne pouvez consulter que vos propres CRA");
     }
 
@@ -169,9 +170,31 @@ const updateCRA = asyncHandler(async (req, res) => {
         throw new ApiError(404, 'CRA introuvable');
     }
 
-    // Check if user is admin or owns this CRA
-    if (currentUser.role !== 'admin' && currentUser.id !== existingCRA.user_id) {
+    // Check permissions based on role and action
+    const isOwner = currentUser.id === existingCRA.user_id;
+    const isAdmin = currentUser.role === 'admin';
+    const isManager = currentUser.role === 'manager';
+    
+    // Determine what the user is trying to do
+    const isStatusUpdate = status !== undefined;
+    const isValidation = isStatusUpdate && (status === 'Validé' || status === 'À réviser');
+    const isSignatureRequest = isStatusUpdate && status === 'Signature demandée';
+    const isOtherUpdate = !isStatusUpdate || (status !== 'Validé' && status !== 'À réviser' && status !== 'Signature demandée');
+    
+    // Permission rules:
+    // - Admins can do everything
+    // - Managers can validate, request signatures, and send for revision
+    // - Owners can do everything except validation and signature requests
+    if (!isAdmin && !isOwner && !isManager) {
         throw new ApiError(403, "Vous ne pouvez modifier que vos propres CRA");
+    }
+    
+    if (isManager && !isOwner && !isValidation && !isSignatureRequest) {
+        throw new ApiError(403, "En tant que manager, vous ne pouvez que valider, demander des signatures ou renvoyer pour révision");
+    }
+    
+    if (isOwner && !isAdmin && (isValidation || isSignatureRequest)) {
+        throw new ApiError(403, "Vous ne pouvez pas valider ou demander la signature de votre propre CRA");
     }
 
     const updateData = {
@@ -283,9 +306,9 @@ const deleteCRA = asyncHandler(async (req, res) => {
         throw new ApiError(404, 'CRA introuvable');
     }
 
-    // Check if user is admin or owns this CRA
-    if (currentUser.role !== 'admin' && currentUser.id !== existingCRA.user_id) {
-        throw new ApiError(403, "Vous ne pouvez supprimer que vos propres CRA");
+    // Only admins can delete CRAs (managers cannot delete)
+    if (currentUser.role !== 'admin') {
+        throw new ApiError(403, "Seuls les administrateurs peuvent supprimer des CRA");
     }
 
     const { error } = await supabase
