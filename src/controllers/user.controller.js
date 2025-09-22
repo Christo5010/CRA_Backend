@@ -382,7 +382,12 @@ const createUser = asyncHandler(async (req, res) => {
 					contentHtml: `
 					  <p style="font-size:15px">Bonjour <strong>${name}</strong>,</p>
 					  <p style="font-size:15px">Cliquez sur le bouton ci-dessous pour définir votre mot de passe et commencer.</p>
-					  <p><a class="btn" href="${process.env.FRONTEND_URL || ''}/new-password?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}" target="_blank" rel="noopener">Créer votre mot de passe</a></p>
+					  <p><a href="${process.env.FRONTEND_URL || ''}/new-password?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}"
+						target="_blank" rel="noopener"
+						style="display:inline-block;text-decoration:none;padding:12px 20px;border-radius:6px;background:#7f4f6a;color:#fff;font-weight:700;margin:12px 0;">
+						Créer votre mot de passe
+						</a>
+						</p>
 					  <p class="small-note">Ce lien expire dans 48 heures.</p>
 					`
 				})
