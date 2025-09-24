@@ -267,9 +267,10 @@ const verifyEmailChange = asyncHandler(async (req, res) => {
 });
 
 const getAllUsers = asyncHandler(async (req, res) => {
-	if (req.user.role !== 'admin') {
-		throw new ApiError(403, 'Accès refusé. Rôle administrateur requis.');
-	}
+    // Allow both admin and manager to list users to align manager/admin views
+    if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+        throw new ApiError(403, 'Accès refusé. Rôle administrateur ou manager requis.');
+    }
 	
 	const { data: users, error } = await supabase
 		.from('profiles')
