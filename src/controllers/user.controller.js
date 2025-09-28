@@ -397,8 +397,15 @@ const createUser = asyncHandler(async (req, res) => {
 			// ignore email failure
 		}
 
+		// Generate the invitation link for admin to copy
+		const invitationLink = `${process.env.FRONTEND_URL || ''}/new-password?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`;
+
 		return res.status(201).json(
-			new ApiResponse(201, { email, role: normalizedRole }, "Utilisateur créé ou réinvité. Email d'invitation envoyé.")
+			new ApiResponse(201, { 
+				email, 
+				role: normalizedRole, 
+				invitationLink 
+			}, "Utilisateur créé ou réinvité. Email d'invitation envoyé.")
 		);
 
 	} catch (error) {
