@@ -44,6 +44,8 @@ import { automationRouter } from './routes/automation.routes.js';
 import { craRouter } from './routes/cra.routes.js';
 import { clientRouter } from './routes/client.routes.js';
 import { actionLogRouter } from './routes/actionLog.routes.js';
+import { absenceRouter } from './routes/absence.routes.js';
+import { linkRouter } from './routes/link.routes.js';
 
 // Use routes
 app.use("/v1/api/user", router)
@@ -52,6 +54,8 @@ app.use("/v1/api/automation", automationRouter);
 app.use("/v1/api/cra", craRouter);
 app.use("/v1/api/client", clientRouter);
 app.use("/v1/api/action-log", actionLogRouter);
+app.use("/v1/api/absences", absenceRouter);
+app.use("/v1/api/link", linkRouter);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

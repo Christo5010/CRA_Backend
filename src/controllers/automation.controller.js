@@ -5,6 +5,7 @@ import { supabase } from "../utils/supabaseClient.js";
 import { sendMail } from "../utils/sendMail.js";
 import { formatISO, startOfMonth } from "date-fns";
 import { wrapEmail } from "../utils/emailTemplate.js";
+import { ensureConnection } from "../utils/redisClient.js";
 
 const sendWelcomeEmail = asyncHandler(async (req, res) => {
     const { userId, email, fullname } = req.body;
@@ -359,4 +360,80 @@ export const sendCRADocumentReminders = asyncHandler(async (req, res) => {
     }
 
     return res.status(200).json(new ApiResponse(200, { total: totalTargets, sent }, 'Rappels CRA documents envoyés'));
+});
+
+// Send secure signature reminder links for CRAs in 'Signature demandée'
+export const sendCRASignatureReminders = asyncHandler(async (req, res) => {
+    const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+    const ttlHours = Number(req.body?.ttlHours) > 0 ? Number(req.body.ttlHours) : 48;
+    const redis = await ensureConnection();
+
+    const makeToken = async (userId, craId) => {
+        const token = crypto.randomUUID();
+        const payload = { userId, craId };
+        await redis.set(`signlink:${token}`, JSON.stringify(payload), { EX: ttlHours * 60 * 60 });
+        return token;
+    };
+
+    const sendEmail = async ({ email, name, craId, month, token }) => {
+        const frontend = process.env.FRONTEND_URL || '';
+        const link = `${frontend}/cra/sign?craId=${encodeURIComponent(craId)}&token=${encodeURIComponent(token)}`;
+        const subject = `Signature requise: CRA ${month}`;
+        const html = wrapEmail({
+            title: subject,
+            contentHtml: `
+              <p style="font-size:15px">Bonjour <strong>${name || ''}</strong>,</p>
+              <p style="font-size:15px">Votre CRA pour <b>${month}</b> nécessite votre signature.</p>
+              <p><a class="btn" href="${link}" target="_blank" rel="noopener">Signer le CRA</a></p>
+              <p class="small-note">Ce lien est sécurisé et expire dans ${ttlHours} heures.</p>
+            `
+        });
+        await sendMail({ to: email, subject, html });
+    };
+
+    let total = 0;
+    let sent = 0;
+
+    if (rows.length > 0) {
+        for (const { user_id, month } of rows) {
+            if (!user_id || !month) continue;
+            const { data: cra } = await supabase
+                .from('cras')
+                .select('id, status, month, user_id')
+                .eq('user_id', user_id)
+                .eq('month', month)
+                .single();
+            if (!cra || cra.status !== 'Signature demandée') continue;
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('id, name, email')
+                .eq('id', user_id)
+                .single();
+            if (!profile?.email) continue;
+            total += 1;
+            try {
+                const token = await makeToken(user_id, cra.id);
+                await sendEmail({ email: profile.email, name: profile.name, craId: cra.id, month: cra.month, token });
+                sent += 1;
+            } catch (_) {}
+        }
+    } else {
+        const { data: cras, error } = await supabase
+            .from('cras')
+            .select('id, month, status, user_id, profiles:profiles!cras_user_id_fkey ( id, name, email )')
+            .eq('status', 'Signature demandée');
+        if (error) throw new ApiError(500, 'Échec de la récupération des CRAs en attente de signature');
+        total = (cras || []).length;
+        for (const cra of (cras || [])) {
+            const email = cra?.profiles?.email;
+            if (!email) continue;
+            try {
+                const token = await makeToken(cra.user_id, cra.id);
+                await sendEmail({ email, name: cra?.profiles?.name || '', craId: cra.id, month: cra.month, token });
+                sent += 1;
+            } catch (_) {}
+        }
+    }
+
+    return res.status(200).json(new ApiResponse(200, { total, sent }, 'Rappels de signature envoyés'));
 });

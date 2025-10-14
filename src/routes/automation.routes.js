@@ -6,7 +6,8 @@ import {
     sendReminderEmail,
     getAutomationLogs,
     sendCRAMonthEndReminders,
-    sendCRADocumentReminders
+    sendCRADocumentReminders,
+    sendCRASignatureReminders
 } from "../controllers/automation.controller.js";
 
 const router = Router();
@@ -21,5 +22,6 @@ router.route("/logs").get(getAutomationLogs);
 router.route("/cra-reminders").post(sendCRAMonthEndReminders);
 router.route("/cra-reminders").get(sendCRAMonthEndReminders);
 router.route("/cra-document-reminders").post(sendCRADocumentReminders);
+router.route("/cra-signature-reminders").post(sendCRASignatureReminders);
 
 export { router as automationRouter };

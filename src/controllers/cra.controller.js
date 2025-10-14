@@ -49,6 +49,7 @@ const createCRA = asyncHandler(async (req, res) => {
         .single();
 
     if (error) {
+        console.log(error)
         throw new ApiError(500, 'Échec de création du CRA');
     }
 
