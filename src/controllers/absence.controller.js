@@ -5,6 +5,62 @@ import { supabase } from "../utils/supabaseClient.js";
 import { sendMail } from "../utils/sendMail.js";
 import { wrapEmail } from "../utils/emailTemplate.js";
 
+// Admin/Manager: Create an approved absence for a consultant
+const createAbsenceForConsultant = asyncHandler(async (req, res) => {
+	if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+		throw new ApiError(403, 'Accès refusé');
+	}
+
+	const { user_id, start_date, end_date, type, reason } = req.body;
+	if (!user_id || !start_date || !end_date) {
+		throw new ApiError(400, 'user_id, start_date et end_date sont requis');
+	}
+
+	const payload = {
+		user_id,
+		start_date,
+		end_date,
+		type: type || null,
+		reason: reason || null,
+		status: 'Approved',
+		created_at: new Date().toISOString(),
+		updated_at: new Date().toISOString()
+	};
+
+	const { data, error } = await supabase
+		.from('absences')
+		.insert(payload)
+		.select('*')
+		.single();
+
+	if (error) {
+		throw new ApiError(500, "Échec de la création de l'absence");
+	}
+
+	// Notify consultant
+	try {
+		const { data: profile } = await supabase
+			.from('profiles')
+			.select('id, name, email')
+			.eq('id', user_id)
+			.single();
+		if (profile?.email) {
+			const subject = `Absence créée et approuvée`;
+			const html = wrapEmail({
+				title: subject,
+				contentHtml: `
+				  <p style="font-size:15px">Bonjour <strong>${profile?.name || ''}</strong>,</p>
+				  <p style="font-size:15px">Une absence a été créée et approuvée pour la période du <b>${start_date}</b> au <b>${end_date}</b>.</p>
+				  ${type || reason ? `<p style="font-size:15px"><b>Motif:</b> ${type || reason}</p>` : ''}
+				`
+			});
+			await sendMail({ to: profile.email, subject, html });
+		}
+	} catch (_) {}
+
+	return res.status(201).json(new ApiResponse(201, data, "Absence créée et approuvée"));
+});
+
 // Create absence request (consultant)
 const createAbsence = asyncHandler(async (req, res) => {
 	const { start_date, end_date, type, reason } = req.body;
@@ -187,6 +243,7 @@ const getApprovedAbsencesForMonth = asyncHandler(async (req, res) => {
 });
 
 export {
+	createAbsenceForConsultant,
 	createAbsence,
 	getMyAbsences,
 	listAbsences,

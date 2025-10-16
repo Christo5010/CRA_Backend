@@ -3,6 +3,7 @@ import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import {
 	createAbsence,
+	createAbsenceForConsultant,
 	getMyAbsences,
 	listAbsences,
 	decideAbsence,
@@ -21,6 +22,10 @@ router.route("/me")
 // Manager/Admin: list and decide
 router.route("/")
 	.get(asyncHandler(listAbsences));
+
+// Manager/Admin: create approved absence for consultant
+router.route("/admin/create")
+	.post(asyncHandler(createAbsenceForConsultant));
 
 router.route("/:absence_id/decision")
 	.post(asyncHandler(decideAbsence));
