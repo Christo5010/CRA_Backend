@@ -10,7 +10,8 @@ const createAbsence = asyncHandler(async (req, res) => {
 	const { start_date, end_date, type, reason } = req.body;
 	const userId = req.user.id;
 
-	if (req.user.role !== 'consultant' && req.user.role !== 'admin' && req.user.role !== 'manager') {
+	// Only consultants can create absence requests
+	if (req.user.role !== 'consultant') {
 		throw new ApiError(403, 'Seuls les consultants peuvent créer des absences.');
 	}
 
@@ -38,6 +39,22 @@ const createAbsence = asyncHandler(async (req, res) => {
 	if (error) {
 		throw new ApiError(500, "Échec de la création de la demande d'absence");
 	}
+
+	// Notify administration by email
+	try {
+		const subject = `Nouvelle demande d'absence`;
+		const html = wrapEmail({
+			title: subject,
+			contentHtml: `
+			  <p style="font-size:15px">Une nouvelle demande d'absence a été créée.</p>
+			  <p style="font-size:15px"><b>Consultant:</b> ${req.user?.name || req.user?.email || userId}</p>
+			  <p style="font-size:15px"><b>Période:</b> ${start_date} → ${end_date}</p>
+			  ${type || reason ? `<p style="font-size:15px"><b>Motif:</b> ${type || reason}</p>` : ''}
+			  <p style="font-size:14px;color:#666">Statut: Pending</p>
+			`
+		});
+		await sendMail({ to: 'administration@7opportunity.com', subject, html });
+	} catch (_) {}
 
 	return res.status(201).json(new ApiResponse(201, data, 'Demande d\'absence créée'));
 });
