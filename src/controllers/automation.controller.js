@@ -365,13 +365,13 @@ export const sendCRADocumentReminders = asyncHandler(async (req, res) => {
 // Send secure signature reminder links for CRAs in 'Signature demandée'
 export const sendCRASignatureReminders = asyncHandler(async (req, res) => {
     const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
-    const ttlHours = Number(req.body?.ttlHours) > 0 ? Number(req.body.ttlHours) : 48;
     const redis = await ensureConnection();
 
     const makeToken = async (userId, craId) => {
         const token = crypto.randomUUID();
         const payload = { userId, craId };
-        await redis.set(`signlink:${token}`, JSON.stringify(payload), { EX: ttlHours * 60 * 60 });
+        // Store without TTL for unlimited validity as requested
+        await redis.set(`signlink:${token}`, JSON.stringify(payload));
         return token;
     };
 
@@ -385,7 +385,7 @@ export const sendCRASignatureReminders = asyncHandler(async (req, res) => {
               <p style="font-size:15px">Bonjour <strong>${name || ''}</strong>,</p>
               <p style="font-size:15px">Votre CRA pour <b>${month}</b> nécessite votre signature.</p>
               <p><a class="btn" href="${link}" target="_blank" rel="noopener">Signer le CRA</a></p>
-              <p class="small-note">Ce lien est sécurisé et expire dans ${ttlHours} heures.</p>
+              <p class="small-note">Ce lien est sécurisé.</p>
             `
         });
         await sendMail({ to: email, subject, html });

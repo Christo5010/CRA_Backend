@@ -251,4 +251,45 @@ export {
 	getApprovedAbsencesForMonth
 };
 
+// Admin: delete any absence (including Approved)
+export const deleteAbsence = asyncHandler(async (req, res) => {
+    if (req.user.role !== 'admin') {
+        throw new ApiError(403, 'Seuls les administrateurs peuvent supprimer des absences');
+    }
+    const { absence_id } = req.params;
+    const { data: existing, error: findErr } = await supabase
+        .from('absences')
+        .select('*')
+        .eq('id', absence_id)
+        .single();
+    if (findErr || !existing) throw new ApiError(404, 'Absence introuvable');
+
+    const { error } = await supabase
+        .from('absences')
+        .delete()
+        .eq('id', absence_id);
+    if (error) throw new ApiError(500, 'Échec de la suppression de l\'absence');
+
+    try {
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('id, name, email')
+            .eq('id', existing.user_id)
+            .single();
+        if (profile?.email) {
+            const subject = `Absence supprimée`;
+            const html = wrapEmail({
+                title: subject,
+                contentHtml: `
+                  <p style="font-size:15px">Bonjour <strong>${profile?.name || ''}</strong>,</p>
+                  <p style="font-size:15px">Votre absence du <b>${existing.start_date}</b> au <b>${existing.end_date}</b> a été supprimée par un administrateur.</p>
+                `
+            });
+            await sendMail({ to: profile.email, subject, html });
+        }
+    } catch (_) {}
+
+    return res.status(200).json(new ApiResponse(200, null, 'Absence supprimée'));
+});
+
 

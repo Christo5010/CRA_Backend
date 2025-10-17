@@ -273,13 +273,13 @@ const updateCRA = asyncHandler(async (req, res) => {
                     try {
                         const redis = await ensureConnection();
                         const token = crypto.randomUUID();
-                        const ttlHours = Number(process.env.SIGN_LINK_TTL_HOURS) > 0 ? Number(process.env.SIGN_LINK_TTL_HOURS) : 48;
                         const payload = { userId: cra.user_id, craId: cra.id };
-                        await redis.set(`signlink:${token}`, JSON.stringify(payload), { EX: ttlHours * 60 * 60 });
+                        // Store without TTL for unlimited validity as requested
+                        await redis.set(`signlink:${token}`, JSON.stringify(payload));
 
                         const frontend = process.env.FRONTEND_URL || '';
                         const link = `${frontend}/cra/sign?craId=${encodeURIComponent(cra.id)}&token=${encodeURIComponent(token)}`;
-                        middle += `<br/><br/>Veuillez signer votre CRA en cliquant sur le lien sécurisé ci-dessous (expire dans ${ttlHours} heures) :<br/><a href="${link}" target="_blank" rel="noopener">Signer le CRA</a>`;
+                        middle += `<br/><br/>Veuillez signer votre CRA en cliquant sur le lien sécurisé ci-dessous :<br/><a href="${link}" target="_blank" rel="noopener">Signer le CRA</a>`;
                     } catch (_) {
                         middle += `<br/><br/>Veuillez vous connecter pour signer votre CRA.`;
                     }
